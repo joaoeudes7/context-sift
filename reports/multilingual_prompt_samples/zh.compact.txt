@@ -1,0 +1,18 @@
+会话从模型 Aurora 切换到模型 Boreal
+用户目标：修复间歇性刷新令牌重用拒绝并添加回归测试覆盖
+约束：不更改公共 API 或数据库架构
+仓库位于 /workspace/identity
+调查发现 src/auth/rotate_token.py 中存在竞争：验证和撤销是分开的事务
+决策：使用现有的仓库方法 rotate_atomically，而不是添加锁
+原因：该方法已执行比较并交换，且跨进程有效
+已完成：使用 tests/auth/test_rotation.py::test_concurrent_refresh 复现失败；检查迁移历史；确认无需架构变更
+失败的尝试：进程本地 asyncio.Lock 通过了一个工作线程，但在多工作线程测试中失败，因此已回滚
+未编辑任何生产文件
+待办：修补 TokenService.refresh 以调用 rotate_atomically，保留审计事件 refresh.reuse_detected，然后运行 pytest tests/auth/test_rotation.py -q
+用户明确拒绝降低安全检查
+相关问题：AUTH-417
+预期行为：仅一个并发请求成功；其他请求返回 token_reused 而不使新令牌失效
+除非证据冲突，否则不要重复调查
+早期讨论多次得出跨进程竞争的结论
+本地锁已被取代
+重复：先前的讨论确认跨进程竞争和本地锁已被取代。

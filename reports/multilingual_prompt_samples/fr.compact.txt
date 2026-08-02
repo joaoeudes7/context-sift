@@ -1,0 +1,18 @@
+Session handoff du modèle Aurora au modèle Boreal
+Objectif de l’utilisateur: corriger le rejet intermittent de la réutilisation du jeton de rafraîchissement et ajouter une couverture de régression
+Contrainte: ne pas modifier l’API publique ni le schéma de base de données
+Le dépôt est /workspace/identity
+L’enquête a révélé une race condition dans src/auth/rotate_token.py: la validation et la révocation sont des transactions séparées
+Décision: utiliser la méthode de dépôt existante rotate_atomically au lieu d’ajouter un verrou
+Raison: la méthode effectue déjà un compare-and-swap et fonctionne entre processus
+Terminé: reproduction de l’échec avec tests/auth/test_rotation.py::test_concurrent_refresh; inspection de l’historique des migrations; confirmation qu’aucun changement de schéma n’est nécessaire
+Tentative échouée: le verrou local asyncio.Lock a passé un seul worker mais a échoué au test multi‑workers, il a donc été annulé
+Aucun fichier de production n’a été modifié
+En attente: correctif de TokenService.refresh pour appeler rotate_atomically, conserver l’événement d’audit refresh.reuse_detected, puis exécuter pytest tests/auth/test_rotation.py -q
+L’utilisateur a explicitement rejeté l’abaissement des contrôles de sécurité
+Problème pertinent: AUTH-417
+Comportement attendu: exactement une requête concurrente réussit; les autres renvoient token_reused sans invalider le nouveau jeton
+Ne pas répéter l’enquête sauf si des preuves contradictoires apparaissent
+La discussion antérieure a conclu à plusieurs reprises que la race condition est inter‑processus
+Le verrou local est supplanté.
+La répétition: une phrase naturelle confirmant la discussion antérieure indique que la race condition inter-processus et le verrou local sont supplantés.

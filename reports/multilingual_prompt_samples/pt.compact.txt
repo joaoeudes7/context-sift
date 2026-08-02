@@ -1,0 +1,18 @@
+Sessão de mão-obra do modelo Aurora para o modelo Boreal
+Objetivo do usuário: corrigir rejeição intermitente de token de atualização e adinar cobertura de regressão
+Restrição: não alterar a API pública ou o esquema do banco de dados
+Repositório é /workspace/identity
+Investigação encontrou corrida em src/auth/rotate_token.py: validação e revogação são transações separadas
+Decisão: usar o método de repositório existente rotate_atomically em vez de adicionar um bloqueio
+Motivo: o método já executa compare-and-swap e funciona entre processos
+Concluído: reproduzido falha com tests/auth/test_rotation.py::test_concurrent_refresh; inspecionado histórico de migração; confirmado que não é necessário alteração de esquema
+Tentativa falha: bloqueio local asyncio.Lock passou em um trabalhador, mas falhou no teste multi-trabalhador, então foi revertido
+Nenhum arquivo de produção foi editado
+Pendente: aplicar patch TokenService.refresh para chamar rotate_atomically, manter evento de auditoria refresh.reuse_detected, então executar pytest tests/auth/test_rotation.py -q
+Usuário explicitamente rejeitou reduzir verificações de segurança
+Questão relevante: AUTH-417
+Comportamento esperado: exatamente uma solicitação simultânea tem sucesso; outras retornam token_reused sem invalidar o novo token
+Não repetir investigação a menos que evidências entrem em conflito
+Discussão anterior concluiu repetidamente que a corrida é entre processos
+O bloqueio local é substituído.
+repetição: uma frase natural significando que a confirmação da discussão anterior valida a corrida entre processos e o bloqueio local foi substituído.

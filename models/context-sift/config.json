@@ -1,0 +1,20 @@
+{
+  "name": "ContextSift",
+  "architecture": "FastMinimumContextRNN",
+  "vocab_size": 8000,
+  "embedding_dim": 64,
+  "hidden_dim": 128,
+  "projection_dim": null,
+  "parameters": 660737,
+  "training_windows": 1194,
+  "validation_windows": 99,
+  "initial_valid_loss": 0.6929938614368438,
+  "best_valid_loss": 0.37747572362422943,
+  "excluded_rows": 2,
+  "reverse_probability": 0.5,
+  "threshold": 0.28,
+  "window_units": 64,
+  "production_ready": true,
+  "validation_target_recall": 0.925716972261401,
+  "validation_reduction": 0.3037684482017481
+}
