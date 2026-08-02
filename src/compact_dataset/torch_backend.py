@@ -5,13 +5,21 @@ from __future__ import annotations
 from pathlib import Path
 
 
+def resolve_device(torch, requested: str | None) -> str:
+    """Choose CUDA when available, otherwise portable CPU."""
+    if requested is not None:
+        return requested
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
 class TorchFastMinimumContextRNN:
     """Exact inference recurrence for MLX FastMinimumContextRNN weights."""
 
-    def __init__(self, weights_path: str | Path, *, device: str = "cpu") -> None:
+    def __init__(self, weights_path: str | Path, *, device: str | None = None) -> None:
         import torch
         from safetensors.torch import load_file
 
+        device = resolve_device(torch, device)
         if device.startswith("cuda") and not torch.cuda.is_available():
             raise RuntimeError("CUDA requested but torch.cuda.is_available() is false")
         self.torch = torch

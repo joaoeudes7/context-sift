@@ -65,7 +65,7 @@ class Compactor:
             from compact_dataset.torch_backend import TorchFastMinimumContextRNN
 
             self.model = TorchFastMinimumContextRNN(
-                path / "model.safetensors", device=device or "cpu"
+                path / "model.safetensors", device=device
             )
             self._runtime = self.model
 

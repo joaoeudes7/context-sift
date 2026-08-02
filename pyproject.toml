@@ -15,6 +15,7 @@ portable = ["safetensors>=0.5", "torch>=2.5"]
 
 [project.scripts]
 compact-dataset = "compact_dataset.cli:main"
+context-sift = "compact_dataset.runtime_cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/compact_dataset"]

@@ -1,6 +1,7 @@
 import json
 import unittest
 from pathlib import Path
+from unittest.mock import Mock
 
 
 class TorchBackendTests(unittest.TestCase):
@@ -16,6 +17,15 @@ class TorchBackendTests(unittest.TestCase):
         self.assertEqual(tuple(context.shape), (2, 256))
         self.assertTrue(model.torch.isfinite(logits).all())
 
+    def test_auto_device_prefers_cuda_then_cpu(self) -> None:
+        from compact_dataset.torch_backend import resolve_device
+
+        torch = Mock()
+        torch.cuda.is_available.return_value = True
+        self.assertEqual(resolve_device(torch, None), "cuda")
+        torch.cuda.is_available.return_value = False
+        self.assertEqual(resolve_device(torch, None), "cpu")
+
     def test_service_runs_repeated_cpu_calls_and_stops(self) -> None:
         from compact_dataset import CompactorService
 
@@ -30,6 +40,14 @@ class TorchBackendTests(unittest.TestCase):
         self.assertIn("src/auth/session.ts", first)
         self.assertIn("30", first)
         self.assertFalse(service.running)
+
+    def test_zero_parameter_service_auto_detects_runtime(self) -> None:
+        from compact_dataset import CompactorService
+
+        service = CompactorService()
+        self.assertIn(service._compactor.backend, ("mlx", "torch"))
+        service("Keep src/app.py and timeout 30 seconds. " * 6)
+        service.stop()
 
     def test_parameter_count_matches_config(self) -> None:
         from safetensors.torch import load_file

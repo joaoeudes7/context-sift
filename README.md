@@ -35,7 +35,7 @@ pip install -e '.[mlx]'        # Apple Silicon
 ```python
 from compact_dataset import CompactorService
 
-sift = CompactorService()  # loads models/context-sift once
+sift = CompactorService()  # zero config: MLX, CUDA, or CPU
 
 first = sift(long_text)
 second = sift(other_text)   # same loaded model
@@ -43,7 +43,10 @@ second = sift(other_text)   # same loaded model
 sift.stop()                # application shutdown
 ```
 
-CPU is automatic outside Apple Silicon. Explicit backend/device:
+Automatic order: Apple MLX when available, otherwise NVIDIA CUDA when available,
+otherwise generic CPU. No runtime parameter is required.
+
+Manual overrides remain available for diagnostics and benchmarks:
 
 ```python
 cpu = CompactorService(backend="torch", device="cpu")
@@ -63,6 +66,23 @@ from compact_dataset import CompactorService
 with CompactorService() as sift:
     reduced_text = sift(long_text)
 ```
+
+## CLI
+
+Install portable runtime, then pipe text with zero arguments:
+
+```bash
+pip install '.[portable]'
+context-sift < prompt.txt > compact.txt
+```
+
+Or pass one UTF-8 text file:
+
+```bash
+context-sift prompt.txt > compact.txt
+```
+
+CLI uses same automatic MLX → CUDA → CPU selection. Output contains only compacted text, suitable for command substitution or piping into another service.
 
 ## Input contract
 
