@@ -5,15 +5,19 @@ build-backend = "hatchling.build"
 [project]
 name = "compact-dataset"
 version = "0.1.0"
-description = "Build bilingual prompt-compaction datasets with OpenRouter free models."
+description = "Tiny multilingual context compactor for faster LLM prefill."
 requires-python = ">=3.11"
-dependencies = ["httpx>=0.27,<1"]
+dependencies = ["httpx>=0.27,<1", "sentencepiece>=0.2"]
 
 [project.optional-dependencies]
-mlx = ["mlx>=0.30", "mlx-lm>=0.31", "sentencepiece>=0.2", "torch>=2.5"]
+mlx = ["mlx>=0.30"]
+portable = ["safetensors>=0.5", "torch>=2.5"]
 
 [project.scripts]
 compact-dataset = "compact_dataset.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/compact_dataset"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"models/context-sift" = "compact_dataset/models/context-sift"

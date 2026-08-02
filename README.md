@@ -14,16 +14,20 @@ Current model: `models/context-sift`, a 660,737-parameter SentencePiece + BiGRU 
 
 ## Runtime support
 
-Current runtime uses MLX. It is ready for Apple Silicon servers running macOS.
+- generic CPU/Linux/macOS: PyTorch backend;
+- NVIDIA: PyTorch CUDA backend;
+- Apple Silicon/macOS: MLX backend, with automatic CPU fallback when Metal is unavailable.
 
-It does **not** currently run on NVIDIA/CUDA or generic CPU servers. Those targets need a portable inference backend, such as PyTorch or ONNX Runtime, plus parity and latency validation. Model weights are stored as SafeTensors, but file format alone does not make MLX operations portable.
+Same bundled SafeTensors weights serve every backend. CPU is portable default because this 660K-parameter RNN is often too small to amortize CUDA kernel launch overhead.
 
 ## Install
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e '.[mlx]'
+pip install -e '.[portable]'   # CPU or NVIDIA/CUDA
+# or
+pip install -e '.[mlx]'        # Apple Silicon
 ```
 
 ## Use as a reusable service
@@ -38,6 +42,16 @@ second = sift(other_text)   # same loaded model
 
 sift.stop()                # application shutdown
 ```
+
+CPU is automatic outside Apple Silicon. Explicit backend/device:
+
+```python
+cpu = CompactorService(backend="torch", device="cpu")
+cuda = CompactorService(backend="torch", device="cuda")
+mlx = CompactorService(backend="mlx")
+```
+
+CUDA requires a PyTorch build compatible with server NVIDIA driver/CUDA stack. Requesting unavailable CUDA fails immediately; it never falls back silently.
 
 Create one instance per worker process, not per request. Calls are serialized by a process-local lock. `start()` and `stop()` are idempotent; a stopped service never reloads implicitly.
 
@@ -92,7 +106,7 @@ Generated rows require review before training. Never send private prompts to ext
 
 ## Train ContextSift
 
-Training currently requires Apple Silicon/MLX. Keep `models/context-sift` as production model; write experiments to another directory and promote only after validation.
+Training currently requires Apple Silicon/MLX. Inference supports MLX, generic CPU, and NVIDIA CUDA. Keep `models/context-sift` as production model; write experiments to another directory and promote only after validation.
 
 ```bash
 PYTHONPATH=src python3 scripts/train_msc_rnn_mlx.py \
