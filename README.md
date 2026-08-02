@@ -22,7 +22,40 @@ Same bundled SafeTensors weights serve every backend. CPU is portable default be
 
 ## Install
 
+### PyPI
+
+After publishing version `1.0.0`:
+
 ```bash
+pip install "compact-dataset[portable]==1.0.0"  # CPU or NVIDIA/CUDA
+pip install "compact-dataset[mlx]==1.0.0"       # Apple Silicon
+```
+
+### GitHub release tag
+
+Install exact source from tag `v1.0.0` without waiting for PyPI:
+
+```bash
+pip install "compact-dataset[portable] @ git+https://github.com/joaoeudes7/compact_llm_summary.git@v1.0.0"
+```
+
+Apple Silicon:
+
+```bash
+pip install "compact-dataset[mlx] @ git+https://github.com/joaoeudes7/compact_llm_summary.git@v1.0.0"
+```
+
+### GitHub latest branch
+
+```bash
+pip install "compact-dataset[portable] @ git+https://github.com/joaoeudes7/compact_llm_summary.git@main"
+```
+
+### Local development
+
+```bash
+git clone https://github.com/joaoeudes7/compact_llm_summary.git
+cd compact_llm_summary
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e '.[portable]'   # CPU or NVIDIA/CUDA
