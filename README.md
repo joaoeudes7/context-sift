@@ -206,6 +206,39 @@ context-sift prompt.txt > compact.txt
 
 CLI uses the same auto backend selection. Output is compacted text only.
 
+## Proxy mode
+
+Run an OpenAI-compatible API proxy that compacts requests before forwarding:
+
+```bash
+pip install 'context-sift[proxy]'
+context-sift-proxy --upstream https://api.openai.com/v1 --key $OPENAI_API_KEY
+```
+
+The proxy compacts `messages[].content` (chat) and `input` (embeddings) before forwarding to the upstream provider. All other endpoints pass through untouched. Supports streaming (`stream: true`) SSE passthrough.
+
+```bash
+# Use like any OpenAI client — proxy sits in front
+curl http://localhost:8000/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_KEY" \
+  -d '{"model":"gpt-4","messages":[{"role":"user","content":"Explain..."}]}'
+```
+
+| Option | Env | Default |
+|---|---|---|
+| `--host` | — | `127.0.0.1` |
+| `--port` | — | `8000` |
+| `--upstream` | `CONTEXT_SIFT_UPSTREAM_URL` | `https://api.openai.com/v1` |
+| `--key` | `CONTEXT_SIFT_UPSTREAM_KEY` | relay client header |
+| `--backend` | — | `auto` |
+| `--threshold` | — | model config |
+
+Key behavior:
+- String `content` fields compacted; multimodal arrays (images) passed through untouched
+- Auth: if `--key` set, used for all upstream requests; otherwise client's `Authorization` header relayed
+- Streaming SSE chunks forwarded live (no buffering)
+- `GET /health` returns `{"status":"ok","compactor":true}`
+
 ## Synthetic dataset
 
 Generate training data with an OpenRouter teacher:

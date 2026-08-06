@@ -35,6 +35,7 @@ dependencies = [
 
 [project.optional-dependencies]
 mlx = ["mlx>=0.30"]
+proxy = ["fastapi>=0.115", "uvicorn[standard]>=0.30"]
 
 [project.urls]
 Homepage = "https://github.com/joaoeudes7/context-sift"
@@ -43,6 +44,7 @@ Repository = "https://github.com/joaoeudes7/context-sift"
 [project.scripts]
 compact-dataset = "context_sift.cli:main"
 context-sift = "context_sift.runtime_cli:main"
+context-sift-proxy = "context_sift.proxy_cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/context_sift"]
