@@ -1,6 +1,6 @@
 import unittest
 
-from compact_dataset.msc_training import split_grouped_rows, training_windows
+from context_sift.msc_training import split_grouped_rows, training_windows
 
 
 class FakeTokenizer:

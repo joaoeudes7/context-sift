@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import re
 from typing import Iterable
 
-from compact_dataset.alignment import Alignment, align_pair, tokenize_with_offsets
+from context_sift.alignment import Alignment, align_pair, tokenize_with_offsets
 
 
 _CLAUSE_RE = re.compile(

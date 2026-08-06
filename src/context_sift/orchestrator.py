@@ -23,6 +23,7 @@ TOKEN_RE = re.compile(r"[\w@./:+%-]+", re.UNICODE)
 PROTECTED_RE = re.compile(
     r"https?://\S+|`[^`]+`|\b\d+(?:[.,]\d+)*(?:%|[A-Za-z]+)?\b"
 )
+_BAND_MASK = (1 << 32) - 1
 
 SYSTEM_PROMPT = """You create supervised examples for a tiny bilingual prompt compactor.
 Return only schema-valid JSON. Each source must be a realistic, self-contained user prompt,
@@ -51,6 +52,18 @@ class BuildConfig:
     model: str = MODEL
     seed: int = 7
     structured_output: bool = True
+
+    def __post_init__(self) -> None:
+        if self.count < 1 or self.batch_size < 1 or self.concurrency < 1 or self.max_attempts < 1:
+            raise ValueError("count, batch-size, concurrency, and max-attempts must be positive")
+        if self.min_source_words < 1:
+            raise ValueError("min-source-words must be positive")
+        if self.min_source_words > self.max_source_words:
+            raise ValueError("min-source-words must not exceed max-source-words")
+        if not 0 < self.min_ratio <= 1:
+            raise ValueError("min-ratio must be in (0, 1]")
+        if self.min_ratio > self.max_ratio:
+            raise ValueError("min-ratio must not exceed max-ratio")
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,7 +134,10 @@ def validate_item(
         language = str(item["language"]).strip().lower()
         source = str(item["source"]).strip()
         target = str(item["target"]).strip()
-        claimed = [str(span).strip() for span in item.get("protected_spans", [])]
+        spans_value = item.get("protected_spans", [])
+        if isinstance(spans_value, str):
+            spans_value = [spans_value]
+        claimed = [str(span).strip() for span in spans_value]
     except (KeyError, TypeError) as error:
         raise DatasetError("missing example field") from error
 
@@ -153,7 +169,7 @@ class DatasetBuilder:
             raise DatasetError("OPENROUTER_API_KEY is required")
         self._write_lock = asyncio.Lock()
         self._seen: set[str] = set()
-        self._simhashes: list[int] = []
+        self._simhash_bands: dict[int, dict[int, list[int]]] = {0: {}, 1: {}}
         self._accepted = 0
         self._rng = random.Random(config.seed)
 
@@ -185,8 +201,29 @@ class DatasetBuilder:
             except (json.JSONDecodeError, KeyError, TypeError) as error:
                 raise DatasetError(f"invalid JSONL line {line_number}") from error
             self._seen.add(fingerprint(source))
-            self._simhashes.append(simhash(source))
+            self._index_simhash(simhash(source))
             self._accepted += 1
+
+    def _index_simhash(self, value: int) -> None:
+        for band, shift in ((0, 32), (1, 0)):
+            key = (value >> shift) & _BAND_MASK
+            self._simhash_bands[band].setdefault(key, []).append(value)
+
+    def _is_near_duplicate(self, value: int) -> bool:
+        """Exact Hamming<=3 check, indexed to avoid scanning all history.
+
+        Two 64-bit values at Hamming distance <=3 agree on at least one 32-bit
+        half within <=1 flipped bit, so probing each half plus its 32 one-bit
+        neighbors finds every match without false positives.
+        """
+        for band, shift in ((0, 32), (1, 0)):
+            base = (value >> shift) & _BAND_MASK
+            for flip in range(33):
+                key = base if flip == 0 else base ^ (1 << (flip - 1))
+                for existing in self._simhash_bands[band].get(key, ()):
+                    if (value ^ existing).bit_count() <= 3:
+                        return True
+        return False
 
     async def _request_batch(
         self, client: httpx.AsyncClient, semaphore: asyncio.Semaphore, batch_index: int
@@ -311,14 +348,11 @@ class DatasetBuilder:
                         break
                     source_hash = fingerprint(example.source)
                     source_simhash = simhash(example.source)
-                    near_duplicate = any(
-                        (source_simhash ^ existing).bit_count() <= 3
-                        for existing in self._simhashes
-                    )
+                    near_duplicate = self._is_near_duplicate(source_simhash)
                     if source_hash in self._seen or near_duplicate:
                         continue
                     output.write(json.dumps(asdict(example), ensure_ascii=False) + "\n")
                     output.flush()
                     self._seen.add(source_hash)
-                    self._simhashes.append(source_simhash)
+                    self._index_simhash(source_simhash)
                     self._accepted += 1

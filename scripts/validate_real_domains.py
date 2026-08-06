@@ -15,8 +15,8 @@ import time
 
 import httpx
 
-from compact_dataset import Compactor
-from compact_dataset.rules import compress_rules
+from context_sift import Compactor
+from context_sift.rules import compress_rules
 from judge_msc_pairs import API_URL, SYSTEM, parse_json
 
 

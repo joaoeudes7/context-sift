@@ -2,7 +2,7 @@ import base64
 import json
 import unittest
 
-from compact_dataset.payloads import compact_base64
+from context_sift.payloads import compact_base64
 
 
 class PayloadTests(unittest.TestCase):

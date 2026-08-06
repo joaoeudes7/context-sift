@@ -3,25 +3,57 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "compact-dataset"
+name = "context-sift"
 version = "1.0.0"
 description = "Tiny multilingual context compactor for faster LLM prefill."
+readme = "README.md"
+license = {file = "LICENSE"}
 requires-python = ">=3.11"
-dependencies = ["httpx>=0.27,<1", "sentencepiece>=0.2"]
-
-[project.urls]
-Repository = "https://github.com/joaoeudes7/compact_llm_summary"
+authors = [{name = "João Eudes"}]
+keywords = ["llm", "context", "compaction", "prefill", "nlp", "multilingual"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "sentencepiece>=0.2",
+    "httpx>=0.27,<1",
+    "safetensors>=0.5",
+    "torch>=2.5",
+]
 
 [project.optional-dependencies]
 mlx = ["mlx>=0.30"]
-portable = ["safetensors>=0.5", "torch>=2.5"]
+
+[project.urls]
+Homepage = "https://github.com/joaoeudes7/compact_llm_summary"
+Repository = "https://github.com/joaoeudes7/compact_llm_summary"
 
 [project.scripts]
-compact-dataset = "compact_dataset.cli:main"
-context-sift = "compact_dataset.runtime_cli:main"
+compact-dataset = "context_sift.cli:main"
+context-sift = "context_sift.runtime_cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/compact_dataset"]
+packages = ["src/context_sift"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"models/context-sift" = "compact_dataset/models/context-sift"
+"models/context-sift" = "context_sift/models/context-sift"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/context_sift", "models/context-sift"]
+
+[tool.hatch.build.targets.sdist.force-include]
+"models/context-sift" = "context_sift/models/context-sift"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]

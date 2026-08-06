@@ -1,6 +1,6 @@
 import unittest
 
-from compact_dataset.rewrite_policy import validate_rewrite
+from context_sift.rewrite_policy import validate_rewrite
 
 
 class RewritePolicyTests(unittest.TestCase):

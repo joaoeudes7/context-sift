@@ -8,10 +8,10 @@ from pathlib import Path
 from threading import RLock
 from typing import Literal
 
-from compact_dataset.clause_dataset import split_clauses
-from compact_dataset.git_diff import compact_git_diff
-from compact_dataset.payloads import compact_base64
-from compact_dataset.rules import compress_rules
+from context_sift.clause_dataset import split_clauses
+from context_sift.git_diff import compact_git_diff
+from context_sift.payloads import compact_base64
+from context_sift.rules import compress_rules, protected_sentence_spans
 
 
 _PACKAGE_MODEL_PATH = Path(__file__).with_name("models") / "context-sift"
@@ -26,12 +26,17 @@ class Compactor:
     def __init__(
         self, model_path: str | Path = DEFAULT_MODEL_PATH, *, threshold: float | None = None,
         window_units: int = 64, backend: Backend = "auto", device: str | None = None,
+        always_compact: bool = False,
     ) -> None:
         import sentencepiece as spm
         path = Path(model_path)
-        config = json.loads((path / "config.json").read_text())
+        config_path = path / "config.json"
+        if not config_path.exists():
+            raise FileNotFoundError(f"model not found: {path} (missing config.json)")
+        config = json.loads(config_path.read_text())
         self.threshold = float(threshold if threshold is not None else config.get("threshold", 0.5))
         self.window_units = window_units
+        self.always_compact = always_compact
         self.tokenizer = spm.SentencePieceProcessor(model_file=str(path / "tokenizer.model"))
         if backend not in ("auto", "mlx", "torch"):
             raise ValueError("backend must be auto, mlx, or torch")
@@ -46,7 +51,7 @@ class Compactor:
         self.backend = backend
         if backend == "mlx":
             import mlx.core as mx
-            from compact_dataset.msc_model import FastMinimumContextRNN, MinimumContextRNN
+            from context_sift.msc_model import FastMinimumContextRNN, MinimumContextRNN
 
             self._runtime = mx
             if config["architecture"] == "FastMinimumContextRNN":
@@ -62,7 +67,7 @@ class Compactor:
         else:
             if config["architecture"] != "FastMinimumContextRNN":
                 raise ValueError("torch backend supports FastMinimumContextRNN only")
-            from compact_dataset.torch_backend import TorchFastMinimumContextRNN
+            from context_sift.torch_backend import TorchFastMinimumContextRNN
 
             self.model = TorchFastMinimumContextRNN(
                 path / "model.safetensors", device=device
@@ -72,8 +77,10 @@ class Compactor:
     def __call__(self, text: str) -> str:
         if any(line.startswith("diff --git ") for line in text.splitlines()):
             return compact_git_diff(text)
+        if not self.always_compact and len(text) < 200:
+            return text
         text = compress_rules(compact_base64(text)).text
-        if len(text) < 200:
+        if not self.always_compact and len(text) < 200:
             return text
         clauses = split_clauses(text)
         if not clauses:
@@ -95,7 +102,7 @@ class Compactor:
             else:
                 scores.extend(self.model.sigmoid_values(logits))
         keep = [score >= self.threshold for score in scores]
-        protected = compress_rules(text).protected_spans
+        protected = protected_sentence_spans(text)
         keep = [
             selected or any(clause.start < span.end and clause.end > span.start for span in protected)
             for clause, selected in zip(clauses, keep)
@@ -117,6 +124,7 @@ class CompactorService:
         window_units: int = 64,
         backend: Backend = "auto",
         device: str | None = None,
+        always_compact: bool = False,
         autostart: bool = True,
     ) -> None:
         self.model_path = Path(model_path)
@@ -124,6 +132,7 @@ class CompactorService:
         self.window_units = window_units
         self.backend = backend
         self.device = device
+        self.always_compact = always_compact
         self._lock = RLock()
         self._compactor: Compactor | None = None
         if autostart:
@@ -143,6 +152,7 @@ class CompactorService:
                     window_units=self.window_units,
                     backend=self.backend,
                     device=self.device,
+                    always_compact=self.always_compact,
                 )
         return self
 

@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from compact_dataset.alignment import AlignmentError, align_pair, tokenize_with_offsets
+from context_sift.alignment import AlignmentError, align_pair, tokenize_with_offsets
 
 
 class AlignmentTests(unittest.TestCase):

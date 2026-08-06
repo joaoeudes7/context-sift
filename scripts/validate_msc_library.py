@@ -11,9 +11,9 @@ from pathlib import Path
 from statistics import median
 import time
 
-from compact_dataset import Compactor
-from compact_dataset.evaluation import valuable_token_recall
-from compact_dataset.rules import compress_rules
+from context_sift import Compactor
+from context_sift.evaluation import valuable_token_recall
+from context_sift.rules import compress_rules
 
 
 def aggregate(items: list[dict]) -> dict:

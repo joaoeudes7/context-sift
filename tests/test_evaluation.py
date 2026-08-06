@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from compact_dataset.evaluation import evaluate_rows, is_token_subsequence, valuable_token_recall
+from context_sift.evaluation import evaluate_rows, is_token_subsequence, valuable_token_recall
 
 
 class EvaluationGateTests(unittest.TestCase):

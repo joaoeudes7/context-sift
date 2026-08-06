@@ -70,7 +70,7 @@ def _protected_ranges(source: str, spans: Iterable[str]) -> list[tuple[int, int]
 def _rule_protected_spans(source: str) -> Sequence[str]:
     """Use rules module when present; keep alignment independently usable."""
     try:
-        from compact_dataset.rules import compress_rules
+        from context_sift.rules import compress_rules
     except (ImportError, AttributeError):
         return ()
     return [span.text for span in compress_rules(source).protected_spans]

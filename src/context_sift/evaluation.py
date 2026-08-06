@@ -7,8 +7,8 @@ from difflib import SequenceMatcher
 from statistics import median
 from typing import Iterable
 
-from compact_dataset.alignment import tokenize_with_offsets
-from compact_dataset.rules import compress_rules
+from context_sift.alignment import tokenize_with_offsets
+from context_sift.rules import compress_rules
 
 
 @dataclass(frozen=True, slots=True)

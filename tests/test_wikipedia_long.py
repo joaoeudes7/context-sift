@@ -1,6 +1,6 @@
 import unittest
 
-from compact_dataset.wikipedia_long import build_long_rows, chunk_text
+from context_sift.wikipedia_long import build_long_rows, chunk_text
 
 
 class WikipediaLongTests(unittest.TestCase):

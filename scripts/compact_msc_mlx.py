@@ -7,7 +7,7 @@ import argparse
 from pathlib import Path
 import sys
 
-from compact_dataset import Compactor
+from context_sift import Compactor
 
 
 def main() -> None:

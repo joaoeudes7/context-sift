@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from compact_dataset.msc import CompactorService
+from context_sift.msc import CompactorService
 
 
 def main() -> None:

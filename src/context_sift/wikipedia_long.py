@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from compact_dataset.clause_dataset import split_clauses
-from compact_dataset.rules import compress_rules
+from context_sift.clause_dataset import split_clauses
+from context_sift.rules import compress_rules
 
 
 def chunk_text(text: str, min_chars: int = 25_000, max_chars: int = 50_000) -> list[str]:

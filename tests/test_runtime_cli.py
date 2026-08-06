@@ -10,7 +10,7 @@ class RuntimeCliTests(unittest.TestCase):
 
     def test_reads_stdin_with_zero_arguments(self) -> None:
         completed = subprocess.run(
-            [sys.executable, "-m", "compact_dataset.runtime_cli"],
+            [sys.executable, "-m", "context_sift.runtime_cli"],
             input=self.text,
             check=True,
             capture_output=True,
@@ -24,7 +24,7 @@ class RuntimeCliTests(unittest.TestCase):
             path = Path(directory) / "prompt.txt"
             path.write_text(self.text, encoding="utf-8")
             completed = subprocess.run(
-                [sys.executable, "-m", "compact_dataset.runtime_cli", str(path)],
+                [sys.executable, "-m", "context_sift.runtime_cli", str(path)],
                 check=True,
                 capture_output=True,
                 text=True,

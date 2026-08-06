@@ -15,8 +15,8 @@ import mlx.optimizers as optim
 import sentencepiece as spm
 from mlx.utils import tree_flatten
 
-from compact_dataset.msc_model import FastMinimumContextRNN, MinimumContextRNN
-from compact_dataset.msc_training import TrainingWindow, split_grouped_rows, training_windows
+from context_sift.msc_model import FastMinimumContextRNN, MinimumContextRNN
+from context_sift.msc_training import TrainingWindow, split_grouped_rows, training_windows
 
 
 def loss_fn(model: nn.Module, units: list[mx.array], labels: mx.array) -> mx.array:
@@ -48,6 +48,7 @@ def main() -> None:
     parser.add_argument("--data", type=Path, nargs="+", default=[Path("data/wikipedia/long.jsonl")])
     parser.add_argument("--tokenizer", type=Path, default=Path("models/context-sift/tokenizer.model"))
     parser.add_argument("--output", type=Path, default=Path("models/context-sift-next"))
+    parser.add_argument("--initial-model", type=Path, default=Path("models/context-sift/model.safetensors"))
     parser.add_argument("--iterations", type=int, default=200)
     parser.add_argument("--learning-rate", type=float, default=2e-4)
     parser.add_argument("--max-label-ratio", type=float, default=0.8)
@@ -55,6 +56,12 @@ def main() -> None:
     parser.add_argument("--fast", action="store_true")
     parser.add_argument("--seed", type=int, default=7)
     args = parser.parse_args()
+    initial_config_path = args.initial_model.parent / "config.json" if args.initial_model else None
+    initial_config = (
+        json.loads(initial_config_path.read_text(encoding="utf-8"))
+        if initial_config_path and initial_config_path.exists()
+        else {}
+    )
     tokenizer = spm.SentencePieceProcessor(model_file=str(args.tokenizer))
     rows = []
     for path in args.data:
@@ -75,6 +82,8 @@ def main() -> None:
     rng = random.Random(args.seed)
     rng.shuffle(train)
     model = FastMinimumContextRNN(tokenizer.vocab_size()) if args.fast else MinimumContextRNN(tokenizer.vocab_size())
+    if args.initial_model:
+        model.load_weights(str(args.initial_model))
     optimizer = optim.AdamW(learning_rate=args.learning_rate, weight_decay=0.01)
     value_and_grad = nn.value_and_grad(model, loss_fn)
     initial = validation_loss(model, valid[:20])
@@ -100,6 +109,7 @@ def main() -> None:
     model.save_weights(str(args.output / "model.safetensors"))
     shutil.copy2(args.tokenizer, args.output / "tokenizer.model")
     config = {
+        "name": initial_config.get("name", "ContextSift"),
         "architecture": "FastMinimumContextRNN" if args.fast else "MinimumContextRNN",
         "vocab_size": tokenizer.vocab_size(),
         "embedding_dim": 64 if args.fast else 128, "hidden_dim": 128,
@@ -107,6 +117,8 @@ def main() -> None:
         "parameters": model.parameter_count(), "training_windows": len(train),
         "validation_windows": len(valid), "initial_valid_loss": initial, "best_valid_loss": best,
         "excluded_rows": len(rows) - len(filtered), "reverse_probability": args.reverse_probability,
+        "initial_model": str(args.initial_model) if args.initial_model else None,
+        "threshold": initial_config.get("threshold", 0.5),
     }
     (args.output / "config.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     reloaded = FastMinimumContextRNN(tokenizer.vocab_size()) if args.fast else MinimumContextRNN(tokenizer.vocab_size())

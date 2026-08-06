@@ -10,8 +10,8 @@ from pathlib import Path
 import mlx.core as mx
 import sentencepiece as spm
 
-from compact_dataset.msc_model import FastMinimumContextRNN, MinimumContextRNN
-from compact_dataset.msc_training import split_grouped_rows, training_windows
+from context_sift.msc_model import FastMinimumContextRNN, MinimumContextRNN
+from context_sift.msc_training import split_grouped_rows, training_windows
 
 
 def metrics(scores: list[float], labels: list[int], threshold: float) -> dict[str, float]:

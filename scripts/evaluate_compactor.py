@@ -7,7 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
-from compact_dataset.evaluation import evaluate_rows
+from context_sift.evaluation import evaluate_rows
 
 
 def main() -> None:
@@ -20,6 +20,8 @@ def main() -> None:
     parser.add_argument("--max-ratio", type=float)
     parser.add_argument("--min-value-recall", type=float, default=0.8)
     args = parser.parse_args()
+    if (args.min_ratio is None) != (args.max_ratio is None):
+        parser.error("--min-ratio and --max-ratio must be provided together")
 
     rows = [
         json.loads(line)

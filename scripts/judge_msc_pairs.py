@@ -13,7 +13,7 @@ import time
 
 import httpx
 
-from compact_dataset import Compactor
+from context_sift import Compactor
 
 
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -38,27 +38,32 @@ def parse_json(content: str) -> dict:
 
 
 def judge_pair(client: httpx.Client, model: str, sample: dict) -> tuple[dict, str]:
+    last_error: Exception | None = None
     for attempt in range(5):
-        response = client.post(API_URL, json={
-            "model": model, "temperature": 0,
-            "messages": [{"role": "system", "content": SYSTEM}, {
-                "role": "user", "content": json.dumps(sample, ensure_ascii=False),
-            }],
-            "max_tokens": 1_000, "reasoning": {"enabled": False},
-        })
-        if response.status_code == 429:
-            time.sleep(min(2 ** attempt, 30))
-            continue
-        response.raise_for_status()
-        body = response.json()
-        value = parse_json(body["choices"][0]["message"]["content"])
-        required = {"id", "central_preserved", "information_recall", "contradictions", "missing_critical", "reason"}
-        if value.keys() != required or value["id"] != sample["id"]:
-            raise ValueError("judge returned invalid schema")
-        if not isinstance(value["information_recall"], (int, float)) or not 0 <= value["information_recall"] <= 1:
-            raise ValueError("judge information_recall must be 0..1")
-        return value, str(body.get("model", model))
-    raise RuntimeError("judge rate limit retries exhausted")
+        try:
+            response = client.post(API_URL, json={
+                "model": model, "temperature": 0,
+                "messages": [{"role": "system", "content": SYSTEM}, {
+                    "role": "user", "content": json.dumps(sample, ensure_ascii=False),
+                }],
+                "max_tokens": 1_000, "reasoning": {"enabled": False},
+            })
+            if response.status_code == 429:
+                time.sleep(min(2 ** attempt, 30))
+                continue
+            response.raise_for_status()
+            body = response.json()
+            value = parse_json(body["choices"][0]["message"]["content"])
+            required = {"id", "central_preserved", "information_recall", "contradictions", "missing_critical", "reason"}
+            if value.keys() != required or value["id"] != sample["id"]:
+                raise ValueError("judge returned invalid schema")
+            if not isinstance(value["information_recall"], (int, float)) or not 0 <= value["information_recall"] <= 1:
+                raise ValueError("judge information_recall must be 0..1")
+            return value, str(body.get("model", model))
+        except (httpx.HTTPError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+            last_error = error
+            time.sleep(2 ** attempt)
+    raise RuntimeError(f"judge failed after retries: {last_error}")
 
 
 def main() -> None:

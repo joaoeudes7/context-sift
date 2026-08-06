@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from compact_dataset.clause_dataset import build_clause_row, split_clauses
+from context_sift.clause_dataset import build_clause_row, split_clauses
 
 
 class ClauseDatasetTests(unittest.TestCase):

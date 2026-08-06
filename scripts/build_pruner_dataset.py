@@ -7,7 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
-from compact_dataset.alignment import AlignmentError, align_pair
+from context_sift.alignment import AlignmentError, align_pair
 
 
 def main() -> None:

@@ -13,9 +13,9 @@ import time
 
 import httpx
 
-from compact_dataset import Compactor
-from compact_dataset.prompt_scenarios import PromptScenario, scenarios
-from validate_real_domains import API_URL, judge
+from context_sift import Compactor
+from context_sift.prompt_scenarios import PromptScenario, scenarios
+from validate_real_domains import judge
 
 
 RUBRIC = (

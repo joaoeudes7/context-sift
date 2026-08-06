@@ -1,6 +1,6 @@
 import unittest
 
-from compact_dataset.supervision import validate_supervision
+from context_sift.supervision import validate_supervision
 
 
 SOURCE = "We test Model X. Dataset Y has 500 samples. Accuracy is 91%."

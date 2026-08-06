@@ -9,7 +9,7 @@ from pathlib import Path
 
 import httpx
 
-from compact_dataset.wikipedia_long import build_long_rows
+from context_sift.wikipedia_long import build_long_rows
 
 
 API = "https://datasets-server.huggingface.co/rows"

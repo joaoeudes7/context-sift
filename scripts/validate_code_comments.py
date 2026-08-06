@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 import time
 
-from compact_dataset import Compactor
+from context_sift import Compactor
 
 
 def without_comments(source: str) -> str:

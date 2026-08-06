@@ -1,6 +1,6 @@
 import unittest
 
-from compact_dataset.msc_annotation import materialize_annotation, source_chunks, teacher_units
+from context_sift.msc_annotation import materialize_annotation, source_chunks, teacher_units
 
 
 class MSCAnnotationTests(unittest.TestCase):

@@ -6,7 +6,7 @@ import argparse
 import asyncio
 from pathlib import Path
 
-from compact_dataset.orchestrator import BuildConfig, DatasetBuilder, DatasetError
+from context_sift.orchestrator import BuildConfig, DatasetBuilder, DatasetError
 
 
 def parser() -> argparse.ArgumentParser:

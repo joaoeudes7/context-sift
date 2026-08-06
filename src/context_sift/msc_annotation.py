@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from compact_dataset.clause_dataset import split_clauses
-from compact_dataset.supervision import UnitRole, validate_supervision
+from context_sift.clause_dataset import split_clauses
+from context_sift.supervision import UnitRole, validate_supervision
 
 
 _HARD_LITERAL_RE = re.compile(

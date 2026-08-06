@@ -5,7 +5,7 @@ class MSCModelTests(unittest.TestCase):
     def test_model_is_tiny_and_emits_one_score_per_unit(self) -> None:
         import mlx.core as mx
 
-        from compact_dataset.msc_model import MinimumContextRNN
+        from context_sift.msc_model import MinimumContextRNN
 
         model = MinimumContextRNN(vocab_size=8_000)
         units = [mx.array([1, 20, 2]), mx.array([1, 30, 40, 2])]
@@ -16,7 +16,7 @@ class MSCModelTests(unittest.TestCase):
         self.assertLess(model.parameter_count(), 2_000_000)
 
     def test_rejects_empty_document(self) -> None:
-        from compact_dataset.msc_model import MinimumContextRNN
+        from context_sift.msc_model import MinimumContextRNN
 
         with self.assertRaisesRegex(ValueError, "at least one unit"):
             MinimumContextRNN(vocab_size=8_000)([])
@@ -24,7 +24,7 @@ class MSCModelTests(unittest.TestCase):
     def test_fast_model_stays_below_one_million_parameters(self) -> None:
         import mlx.core as mx
 
-        from compact_dataset.msc_model import FastMinimumContextRNN
+        from context_sift.msc_model import FastMinimumContextRNN
 
         model = FastMinimumContextRNN(8_000)
         logits, _ = model([mx.array([1, 20, 2]), mx.array([1, 30, 40, 2])])

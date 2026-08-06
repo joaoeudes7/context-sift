@@ -1,7 +1,7 @@
 import unittest
 
-from compact_dataset.git_diff import compact_git_diff
-from compact_dataset.msc import Compactor
+from context_sift.git_diff import compact_git_diff
+from context_sift.msc import Compactor
 
 
 class GitDiffTests(unittest.TestCase):

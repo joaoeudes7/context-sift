@@ -1,6 +1,6 @@
 import unittest
 
-from compact_dataset.aligned_wikipedia import (
+from context_sift.aligned_wikipedia import (
     merge_page_queries,
     parse_page_extracts,
     parse_page_links,

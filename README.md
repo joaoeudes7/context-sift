@@ -2,137 +2,156 @@
 
 ContextSift removes redundant natural-language context before LLM prefill. Output stays extractive: fewer source clauses, same operational meaning.
 
-Production goals:
+## Quickstart
 
-- typical reduction of at least 30% when redundancy permits;
-- preserve goals, constraints, decisions, reasons, paths, commands, identifiers, numbers, URLs, and negations;
-- never force a fixed ratio;
-- leave text below 200 characters unchanged;
-- load one tiny model once and reuse it across requests.
+```bash
+pip install context-sift
+```
 
-Current model: `models/context-sift`, a 660,737-parameter SentencePiece + BiGRU clause selector.
+```python
+from context_sift import CompactorService
 
-## Runtime support
+with CompactorService() as sift:
+    reduced = sift("your long prompt here...")
+```
 
-- generic CPU/Linux/macOS: PyTorch backend;
-- NVIDIA: PyTorch CUDA backend;
-- Apple Silicon/macOS: MLX backend, with automatic CPU fallback when Metal is unavailable.
-
-Same bundled SafeTensors weights serve every backend. CPU is portable default because this 660K-parameter RNN is often too small to amortize CUDA kernel launch overhead.
+Model ships inside the wheel. Zero config.
 
 ## Install
 
-### PyPI
-
-After publishing version `1.0.0`:
+**PyPI** (works on any platform — CPU backend built-in):
 
 ```bash
-pip install "compact-dataset[portable]==1.0.0"  # CPU or NVIDIA/CUDA
-pip install "compact-dataset[mlx]==1.0.0"       # Apple Silicon
+pip install context-sift            # CPU (Linux, macOS, Windows)
+pip install "context-sift[mlx]"     # Apple Silicon (MLX backend, faster)
 ```
 
-### GitHub release tag
-
-Install exact source from tag `v1.0.0` without waiting for PyPI:
+**Git tag:**
 
 ```bash
-pip install "compact-dataset[portable] @ git+https://github.com/joaoeudes7/compact_llm_summary.git@v1.0.0"
+pip install "context-sift @ git+https://github.com/joaoeudes7/compact_llm_summary.git@v1.0.0"
 ```
 
-Apple Silicon:
-
-```bash
-pip install "compact-dataset[mlx] @ git+https://github.com/joaoeudes7/compact_llm_summary.git@v1.0.0"
-```
-
-### GitHub latest branch
-
-```bash
-pip install "compact-dataset[portable] @ git+https://github.com/joaoeudes7/compact_llm_summary.git@main"
-```
-
-### Local development
+**Local dev:**
 
 ```bash
 git clone https://github.com/joaoeudes7/compact_llm_summary.git
 cd compact_llm_summary
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e '.[portable]'   # CPU or NVIDIA/CUDA
+pip install -e '.[mlx]'   # Apple Silicon
 # or
-pip install -e '.[mlx]'        # Apple Silicon
+pip install -e .           # CPU
 ```
 
-## Use as a reusable service
+## Use as a library
 
 ```python
-from compact_dataset import CompactorService
+from context_sift import CompactorService
 
-sift = CompactorService()  # zero config: MLX, CUDA, or CPU
+# Zero config — auto-selects MLX, CUDA, or CPU
+sift = CompactorService()
 
 first = sift(long_text)
-second = sift(other_text)   # same loaded model
+second = sift(other_text)    # reuses loaded model
 
-sift.stop()                # application shutdown
+sift.stop()                  # application shutdown
 ```
 
-Automatic order: Apple MLX when available, otherwise NVIDIA CUDA when available,
-otherwise generic CPU. No runtime parameter is required.
-
-Manual overrides remain available for diagnostics and benchmarks:
+**Context-manager form:**
 
 ```python
-cpu = CompactorService(backend="torch", device="cpu")
-cuda = CompactorService(backend="torch", device="cuda")
-mlx = CompactorService(backend="mlx")
-```
-
-CUDA requires a PyTorch build compatible with server NVIDIA driver/CUDA stack. Requesting unavailable CUDA fails immediately; it never falls back silently.
-
-Create one instance per worker process, not per request. Calls are serialized by a process-local lock. `start()` and `stop()` are idempotent; a stopped service never reloads implicitly.
-
-Context-manager form:
-
-```python
-from compact_dataset import CompactorService
+from context_sift import CompactorService
 
 with CompactorService() as sift:
-    reduced_text = sift(long_text)
+    reduced = sift(long_text)
 ```
+
+### Parameters
+
+```python
+CompactorService(
+    model_path=DEFAULT_MODEL_PATH,  # bundled model
+    threshold=None,                  # None = read from model config (0.28)
+    window_units=64,                 # token window for scoring
+    backend="auto",                  # "auto" | "mlx" | "torch"
+    device=None,                     # None = auto ("cuda" if available)
+    always_compact=False,            # True = compact even short text
+    autostart=True,                  # False = call start() manually
+)
+```
+
+### Lifecycle
+
+- One instance per worker process, not per request.
+- `start()` and `stop()` are idempotent.
+- A stopped service never reloads implicitly.
+- Calls are serialized by a process-local lock.
+
+### Backends
+
+Auto-selection order: Apple MLX → NVIDIA CUDA → generic CPU.
+
+Manual overrides for benchmarks or diagnostics:
+
+```python
+cpu  = CompactorService(backend="torch", device="cpu")
+cuda = CompactorService(backend="torch", device="cuda")
+mlx  = CompactorService(backend="mlx")
+```
+
+CUDA requires a PyTorch build compatible with your driver/CUDA stack. Requesting unavailable CUDA fails immediately — no silent fallback.
+
+### Input contract
+
+**In scope:**
+
+- System prompts and custom instructions
+- Conversations and cross-model handoffs
+- Plans, documentation, articles
+- Multilingual prose with technical anchors
+
+**Out of scope:** raw HTML/XML, source code, JSON, OCR, images, PDF, base64. Parse or bypass these before compaction.
+
+**Rules:**
+
+- Input below 200 characters returns unchanged (configurable via `always_compact`).
+- Compression is adaptive. Dense text may stay mostly intact; repetitive text may shrink far beyond 30%.
+- Goals, constraints, decisions, reasons, paths, commands, identifiers, numbers, URLs, and negations are always preserved.
 
 ## CLI
 
-Install portable runtime, then pipe text with zero arguments:
+Pipe text or pass a file:
 
 ```bash
-pip install '.[portable]'
 context-sift < prompt.txt > compact.txt
-```
-
-Or pass one UTF-8 text file:
-
-```bash
 context-sift prompt.txt > compact.txt
 ```
 
-CLI uses same automatic MLX → CUDA → CPU selection. Output contains only compacted text, suitable for command substitution or piping into another service.
+CLI uses the same auto backend selection. Output is compacted text only.
 
-## Input contract
+## Synthetic dataset
 
-Input: decoded Unicode natural-language text. Caller must extract readable text first.
+Generate training data with an OpenRouter teacher:
 
-Primary use:
+```bash
+export OPENROUTER_API_KEY='...'
+compact-dataset --count 100 --batch-size 4 --concurrency 4
+```
 
-- long system prompts and custom instructions;
-- conversations and cross-model handoffs;
-- plans, documentation, and articles;
-- multilingual prose containing technical anchors.
+Output defaults to `data/train.jsonl`. Reruns resume from valid rows. Generated rows require review before training. Never send private prompts to external teachers.
 
-Outside primary scope: raw HTML/XML, source code, JSON/TOON, OCR repair, images, PDF binaries, and base64. Parse or bypass these formats before compaction. Git diff has a conservative compatibility path but is not part of main quality target.
+## Train ContextSift
 
-No `source_type` is required. Compression is adaptive. Dense text may remain mostly intact; repetitive long context may shrink far beyond 30%.
+Training requires Apple Silicon/MLX. Inference supports MLX, CPU, and CUDA.
 
-For agent handoffs, retained context must identify current goal, governing rules, selected approach, rejected attempts, completed work, blockers, relevant paths/identifiers, and exact next action.
+```bash
+PYTHONPATH=src python3 scripts/train_msc_rnn_mlx.py \
+  --data data/msc/train.jsonl \
+  --tokenizer models/context-sift/tokenizer.model \
+  --output models/context-sift-next \
+  --fast
+```
+
+Keep `models/context-sift` as the production model. Write experiments to another directory and promote only after validation.
 
 ## Validation
 
@@ -142,29 +161,8 @@ PYTHONPATH=src python3 scripts/validate_prompt_scenarios.py --skip-judge
 PYTHONPATH=src python3 scripts/validate_multilingual_handoffs.py
 ```
 
-Multilingual handoff fixtures cover EN, PT, ES, FR, DE, RU, AR, JA, and ZH. Technical anchors remain byte-exact. Semantic similarity alone is insufficient; operational details and protected spans are release gates.
+Multilingual fixtures cover EN, PT, ES, FR, DE, RU, AR, JA, and ZH. Technical anchors remain byte-exact.
 
-## Synthetic dataset
+## License
 
-Set key only in environment:
-
-```bash
-export OPENROUTER_API_KEY='...'
-compact-dataset --count 100 --batch-size 4 --concurrency 4
-```
-
-Output defaults to `data/train.jsonl`; reruns resume from valid rows. `openrouter/free` selects an available free teacher. Pin one with `--model vendor/model:free`. Use `--plain-json` when model lacks OpenRouter `response_format` support.
-
-Generated rows require review before training. Never send private prompts to external teachers.
-
-## Train ContextSift
-
-Training currently requires Apple Silicon/MLX. Inference supports MLX, generic CPU, and NVIDIA CUDA. Keep `models/context-sift` as production model; write experiments to another directory and promote only after validation.
-
-```bash
-PYTHONPATH=src python3 scripts/train_msc_rnn_mlx.py \
-  --data data/msc/train.jsonl \
-  --tokenizer models/context-sift/tokenizer.model \
-  --output models/context-sift-next \
-  --fast
-```
+[MIT](LICENSE)

@@ -7,8 +7,8 @@ import argparse
 import json
 from pathlib import Path
 
-from compact_dataset.alignment import AlignmentError
-from compact_dataset.clause_dataset import build_clause_row
+from context_sift.alignment import AlignmentError
+from context_sift.clause_dataset import build_clause_row
 
 
 def main() -> None:

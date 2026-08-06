@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import json
 from typing import Any
 
-from compact_dataset.rules import compress_rules
+from context_sift.rules import compress_rules
 
 
 @dataclass(frozen=True, slots=True)

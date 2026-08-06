@@ -1,6 +1,6 @@
 import unittest
 
-from compact_dataset.transformations import (
+from context_sift.transformations import (
     Operation,
     SourceUnit,
     Transformation,

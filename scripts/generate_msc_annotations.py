@@ -12,7 +12,7 @@ from typing import Any
 
 import httpx
 
-from compact_dataset.msc_annotation import materialize_annotation, source_chunks, teacher_units
+from context_sift.msc_annotation import materialize_annotation, source_chunks, teacher_units
 
 
 API_URL = "https://openrouter.ai/api/v1/chat/completions"

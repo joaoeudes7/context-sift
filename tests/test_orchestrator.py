@@ -1,6 +1,6 @@
 import unittest
 
-from compact_dataset.orchestrator import (
+from context_sift.orchestrator import (
     DatasetError,
     fingerprint,
     parse_examples,

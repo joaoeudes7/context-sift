@@ -1,6 +1,6 @@
 import unittest
 
-from compact_dataset.minimum_context import Candidate, select_minimum_context
+from context_sift.minimum_context import Candidate, select_minimum_context
 
 
 class MinimumContextTests(unittest.TestCase):

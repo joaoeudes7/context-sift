@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import hashlib
 from typing import Any, Protocol
 
-from compact_dataset.clause_dataset import split_clauses
+from context_sift.clause_dataset import split_clauses
 
 
 class Tokenizer(Protocol):
@@ -59,12 +59,14 @@ def training_windows(
     else:
         texts = [clause.text for clause in split_clauses(source)]
     if "target_unit_ids" in row:
+        if not raw_units:
+            raise ValueError("target_unit_ids require row units")
         selected = {str(value) for value in row["target_unit_ids"]}
         labels = [int(str(unit.get("id", f"u{index}")) in selected) for index, unit in enumerate(raw_units)]
     elif "labels" in row:
         labels = [int(value) for value in row["labels"]]
     else:
-        from compact_dataset.word_pruner import sentence_keep_labels
+        from context_sift.word_pruner import sentence_keep_labels
 
         labels = sentence_keep_labels(source, str(row["target"]))
     if not texts or len(texts) != len(labels):

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-from compact_dataset.rewrite_policy import validate_rewrite
+from context_sift.rewrite_policy import validate_rewrite
 
 
 class Operation(StrEnum):

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import httpx
 
-from compact_dataset.aligned_wikipedia import merge_page_queries, parse_page_extracts, parse_page_links_all
+from context_sift.aligned_wikipedia import merge_page_queries, parse_page_extracts, parse_page_links_all
 
 
 HEADERS = {"User-Agent": "compact-llm-summary/0.1 research dataset"}

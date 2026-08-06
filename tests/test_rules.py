@@ -1,6 +1,6 @@
 import unittest
 
-from compact_dataset.rules import compress_rules
+from context_sift.rules import compress_rules, protected_sentence_spans
 
 
 class RulesTest(unittest.TestCase):
@@ -114,6 +114,42 @@ class RulesTest(unittest.TestCase):
         spans = [span.text.casefold() for span in compress_rules(source).protected_spans]
         for value in ("rejeté", "abgelehnt", "拒否", "拒绝"):
             self.assertIn(value.casefold(), spans)
+
+    def test_protects_questions_permissions_and_prohibitions_multilingually(self) -> None:
+        examples = (
+            "Can another service reuse the model?",
+            "Niemals ohne Zustimmung veröffentlichen.",
+            "Никогда не публикуйте без одобрения.",
+            "承認なしに公開してはいけない。",
+            "未经批准不得发布。",
+            "لا تنشر دون موافقة.",
+        )
+        for source in examples:
+            spans = compress_rules(source).protected_spans
+            self.assertTrue(spans, source)
+
+    def test_protects_explicit_tool_inventory(self) -> None:
+        source = "Tool inventory includes repository search, file read, and CI status."
+        spans = [span.text.casefold() for span in compress_rules(source).protected_spans]
+        self.assertIn("tool inventory", spans)
+
+    def test_protects_direct_user_commands(self) -> None:
+        for source in (
+            "Do something useful.", "You should update README.", "Do you can continue",
+            "Search by exact identifier.", "Keep running validation.",
+            "Find the relevant file.", "Identify the root cause.",
+            "Faça algo útil.", "修复这个错误。",
+        ):
+            self.assertTrue(compress_rules(source).protected_spans, source)
+
+    def test_expands_policy_anchor_across_comma_subclauses(self) -> None:
+        source = "Do not read .env, credentials, tokens, or private keys. Drop this narration."
+        spans = protected_sentence_spans(source)
+        self.assertEqual(spans[0].text, "Do not read .env, credentials, tokens, or private keys.")
+
+    def test_preserves_complete_information_sequence(self) -> None:
+        source = "Do a cacke -> sell -> get money -> repeat. Generic narration."
+        self.assertEqual(protected_sentence_spans(source)[0].text, "Do a cacke -> sell -> get money -> repeat.")
 
 
 if __name__ == "__main__":

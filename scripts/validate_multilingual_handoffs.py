@@ -11,7 +11,7 @@ import re
 import time
 import unicodedata
 
-from compact_dataset import Compactor
+from context_sift import Compactor
 from validate_prompt_scenarios import contains_exact
 
 

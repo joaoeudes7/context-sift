@@ -11,8 +11,8 @@ import mlx.core as mx
 import mlx.nn as nn
 from mlx.utils import tree_flatten
 
-from compact_dataset.alignment import align_pair, tokenize_with_offsets
-from compact_dataset.clause_dataset import split_clauses
+from context_sift.alignment import align_pair, tokenize_with_offsets
+from context_sift.clause_dataset import split_clauses
 
 
 VOCAB_SIZE = 8192

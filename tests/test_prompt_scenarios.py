@@ -1,6 +1,6 @@
 import unittest
 
-from compact_dataset.prompt_scenarios import scenarios
+from context_sift.prompt_scenarios import scenarios
 
 
 class PromptScenarioTests(unittest.TestCase):
