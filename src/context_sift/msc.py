@@ -13,7 +13,7 @@ from context_sift.git_diff import compact_git_diff
 from context_sift.json_compressor import compact_json
 from context_sift.lossless import compact_logs
 from context_sift.payloads import compact_base64
-from context_sift.rules import compress_rules, protected_sentence_spans
+from context_sift.rules import compress_rules
 
 
 _PACKAGE_MODEL_PATH = Path(__file__).with_name("models") / "context-sift"
@@ -53,10 +53,19 @@ class Compactor:
         self.backend = backend
         if backend == "mlx":
             import mlx.core as mx
-            from context_sift.msc_model import FastMinimumContextRNN, MinimumContextRNN
+            from context_sift.msc_model import (
+                FastMinimumContextRNN,
+                FastMinimumContextRNNV2,
+                MinimumContextRNN,
+            )
 
             self._runtime = mx
-            if config["architecture"] == "FastMinimumContextRNN":
+            arch = config["architecture"]
+            if arch == "FastMinimumContextRNNV2":
+                self.model = FastMinimumContextRNNV2(
+                    config["vocab_size"], config["embedding_dim"], config["hidden_dim"]
+                )
+            elif arch == "FastMinimumContextRNN":
                 self.model = FastMinimumContextRNN(
                     config["vocab_size"], config["embedding_dim"], config["hidden_dim"]
                 )
@@ -67,8 +76,6 @@ class Compactor:
                 )
             self.model.load_weights(str(path / "model.safetensors"))
         else:
-            if config["architecture"] != "FastMinimumContextRNN":
-                raise ValueError("torch backend supports FastMinimumContextRNN only")
             from context_sift.torch_backend import TorchFastMinimumContextRNN
 
             self.model = TorchFastMinimumContextRNN(
@@ -104,7 +111,7 @@ class Compactor:
             else:
                 scores.extend(self.model.sigmoid_values(logits))
         keep = [score >= self.threshold for score in scores]
-        protected = protected_sentence_spans(text)
+        protected = compress_rules(text).protected_spans
         keep = [
             selected or any(clause.start < span.end and clause.end > span.start for span in protected)
             for clause, selected in zip(clauses, keep)

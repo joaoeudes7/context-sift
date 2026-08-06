@@ -13,7 +13,12 @@ def resolve_device(torch, requested: str | None) -> str:
 
 
 class TorchFastMinimumContextRNN:
-    """Exact inference recurrence for MLX FastMinimumContextRNN weights."""
+    """Exact inference recurrence for MLX FastMinimumContextRNN weights.
+
+    Supports both legacy (660K) and improved (758K) architectures:
+    - Legacy: Embedding → mean pooling → BiGRU → keep_head
+    - Improved (V2): + LayerNorm + self-attention
+    """
 
     def __init__(self, weights_path: str | Path, *, device: str | None = None) -> None:
         import torch
@@ -25,6 +30,9 @@ class TorchFastMinimumContextRNN:
         self.torch = torch
         self.device = torch.device(device)
         self.weights = load_file(str(weights_path), device=str(self.device))
+        self._has_norm = "norm.weight" in self.weights
+        self._has_attention = "attention_query.weight" in self.weights
+        self._is_v2 = self._has_norm and self._has_attention
 
     def _gru(self, sequence, prefix: str):
         torch = self.torch
@@ -52,6 +60,42 @@ class TorchFastMinimumContextRNN:
             outputs.append(hidden)
         return torch.stack(outputs, dim=1)
 
+    def _layer_norm(self, x):
+        """Apply LayerNorm if weights exist (improved architecture)."""
+        if not self._has_norm:
+            return x
+        torch = self.torch
+        weight = self.weights["norm.weight"]
+        bias = self.weights["norm.bias"]
+        return torch.nn.functional.layer_norm(x, (x.shape[-1],), weight, bias)
+
+    def _self_attention(self, x):
+        """Apply self-attention if weights exist (improved architecture).
+
+        x: (batch, seq_len, hidden*2)
+        Returns: (batch, seq_len, hidden*2)
+        """
+        if not self._has_attention:
+            return x
+        torch = self.torch
+        wq = self.weights["attention_query.weight"]
+        bq = self.weights["attention_query.bias"]
+        wk = self.weights["attention_key.weight"]
+        bk = self.weights["attention_key.bias"]
+        wv = self.weights["attention_value.weight"]
+        bv = self.weights["attention_value.bias"]
+
+        q = torch.nn.functional.linear(x, wq, bq)
+        k = torch.nn.functional.linear(x, wk, bk)
+        v = torch.nn.functional.linear(x, wv, bv)
+
+        scale = q.shape[-1] ** -0.5
+        scores = torch.bmm(q, k.transpose(1, 2)) * scale
+        weights = torch.softmax(scores, dim=-1)
+        attended = torch.bmm(weights, v)
+
+        return x + attended
+
     def __call__(self, units: list[list[int]]):
         torch = self.torch
         if not units:
@@ -72,6 +116,10 @@ class TorchFastMinimumContextRNN:
             forward = self._gru(sequence, "document_forward")[0]
             backward = self._gru(sequence.flip(1), "document_backward")[0].flip(0)
             contextual = torch.cat((forward, backward), dim=-1)
+            # Layer norm (improved architecture)
+            contextual = self._layer_norm(contextual)
+            # Self-attention (improved architecture)
+            contextual = self._self_attention(contextual)
             logits = torch.nn.functional.linear(
                 contextual,
                 self.weights["keep_head.weight"],

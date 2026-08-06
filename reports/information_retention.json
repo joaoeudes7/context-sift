@@ -1,0 +1,422 @@
+{
+  "hdfs_logs_100": {
+    "name": "hdfs_logs_100",
+    "input_chars": 13857,
+    "output_chars": 2263,
+    "compression_ratio": 0.837,
+    "entity_preservation": {
+      "block_id": {
+        "original": 100,
+        "preserved": 16,
+        "lost": 84,
+        "ratio": 0.16
+      },
+      "ip": {
+        "original": 78,
+        "preserved": 14,
+        "lost": 64,
+        "ratio": 0.179
+      },
+      "node": {
+        "original": 5,
+        "preserved": 5,
+        "lost": 0,
+        "ratio": 1.0
+      },
+      "port": {
+        "original": 11,
+        "preserved": 3,
+        "lost": 8,
+        "ratio": 0.273
+      },
+      "timestamp": {
+        "original": 84,
+        "preserved": 13,
+        "lost": 71,
+        "ratio": 0.155
+      },
+      "url": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "path": {
+        "original": 6,
+        "preserved": 3,
+        "lost": 3,
+        "ratio": 0.5
+      },
+      "size": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      }
+    },
+    "semantic_similarity": 0.961,
+    "critical_facts": {
+      "error_lines_original": 18,
+      "error_lines_compressed": 2,
+      "unique_error_patterns_preserved": 2,
+      "unique_error_patterns_total": 2,
+      "preservation_rate": 1.0
+    },
+    "reversibility": {
+      "collapse_expand_roundtrip": true,
+      "fold_unfold_roundtrip": true,
+      "collapse_ratio": 0.0,
+      "fold_ratio": 0.0
+    }
+  },
+  "hdfs_logs_500": {
+    "name": "hdfs_logs_500",
+    "input_chars": 69202,
+    "output_chars": 3811,
+    "compression_ratio": 0.945,
+    "entity_preservation": {
+      "block_id": {
+        "original": 499,
+        "preserved": 26,
+        "lost": 473,
+        "ratio": 0.052
+      },
+      "ip": {
+        "original": 176,
+        "preserved": 16,
+        "lost": 160,
+        "ratio": 0.091
+      },
+      "node": {
+        "original": 5,
+        "preserved": 5,
+        "lost": 0,
+        "ratio": 1.0
+      },
+      "port": {
+        "original": 43,
+        "preserved": 3,
+        "lost": 40,
+        "ratio": 0.07
+      },
+      "timestamp": {
+        "original": 420,
+        "preserved": 18,
+        "lost": 402,
+        "ratio": 0.043
+      },
+      "url": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "path": {
+        "original": 92,
+        "preserved": 10,
+        "lost": 82,
+        "ratio": 0.109
+      },
+      "size": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      }
+    },
+    "semantic_similarity": 0.936,
+    "critical_facts": {
+      "error_lines_original": 47,
+      "error_lines_compressed": 2,
+      "unique_error_patterns_preserved": 2,
+      "unique_error_patterns_total": 2,
+      "preservation_rate": 1.0
+    },
+    "reversibility": {
+      "collapse_expand_roundtrip": true,
+      "fold_unfold_roundtrip": true,
+      "collapse_ratio": 0.0,
+      "fold_ratio": 0.0
+    }
+  },
+  "wikipedia_article": {
+    "name": "wikipedia_article",
+    "input_chars": 49916,
+    "output_chars": 49914,
+    "compression_ratio": 0.0,
+    "entity_preservation": {
+      "block_id": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "ip": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "node": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "port": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "timestamp": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "url": {
+        "original": 1,
+        "preserved": 1,
+        "lost": 0,
+        "ratio": 1.0
+      },
+      "path": {
+        "original": 1,
+        "preserved": 1,
+        "lost": 0,
+        "ratio": 1.0
+      },
+      "size": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      }
+    },
+    "semantic_similarity": 1.0,
+    "critical_facts": {
+      "error_lines_original": 0,
+      "error_lines_compressed": 0,
+      "unique_error_patterns_preserved": 0,
+      "unique_error_patterns_total": 0,
+      "preservation_rate": 0.0
+    },
+    "reversibility": {
+      "collapse_expand_roundtrip": true,
+      "fold_unfold_roundtrip": true,
+      "collapse_ratio": 0.0,
+      "fold_ratio": 0.0
+    }
+  },
+  "json_api_response": {
+    "name": "json_api_response",
+    "input_chars": 3140,
+    "output_chars": 1488,
+    "compression_ratio": 0.526,
+    "entity_preservation": {
+      "block_id": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "ip": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "node": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "port": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "timestamp": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "url": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "path": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "size": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      }
+    },
+    "semantic_similarity": 0.999,
+    "critical_facts": {
+      "error_lines_original": 0,
+      "error_lines_compressed": 0,
+      "unique_error_patterns_preserved": 0,
+      "unique_error_patterns_total": 0,
+      "preservation_rate": 0.0
+    },
+    "reversibility": {
+      "collapse_expand_roundtrip": true,
+      "fold_unfold_roundtrip": true,
+      "collapse_ratio": 0.0,
+      "fold_ratio": 0.0
+    }
+  },
+  "json_log_entries": {
+    "name": "json_log_entries",
+    "input_chars": 9592,
+    "output_chars": 540,
+    "compression_ratio": 0.944,
+    "entity_preservation": {
+      "block_id": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "ip": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "node": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "port": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "timestamp": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "url": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "path": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "size": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      }
+    },
+    "semantic_similarity": 0.959,
+    "critical_facts": {
+      "error_lines_original": 0,
+      "error_lines_compressed": 0,
+      "unique_error_patterns_preserved": 0,
+      "unique_error_patterns_total": 0,
+      "preservation_rate": 0.0
+    },
+    "reversibility": {
+      "collapse_expand_roundtrip": true,
+      "fold_unfold_roundtrip": true,
+      "collapse_ratio": 0.0,
+      "fold_ratio": 0.0
+    }
+  },
+  "app_logs_mixed": {
+    "name": "app_logs_mixed",
+    "input_chars": 22713,
+    "output_chars": 713,
+    "compression_ratio": 0.969,
+    "entity_preservation": {
+      "block_id": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "ip": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "node": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "port": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "timestamp": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "url": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      },
+      "path": {
+        "original": 1,
+        "preserved": 1,
+        "lost": 0,
+        "ratio": 1.0
+      },
+      "size": {
+        "original": 0,
+        "preserved": 0,
+        "lost": 0,
+        "ratio": 0.0
+      }
+    },
+    "semantic_similarity": 0.945,
+    "critical_facts": {
+      "error_lines_original": 4,
+      "error_lines_compressed": 4,
+      "unique_error_patterns_preserved": 1,
+      "unique_error_patterns_total": 1,
+      "preservation_rate": 1.0
+    },
+    "reversibility": {
+      "collapse_expand_roundtrip": true,
+      "fold_unfold_roundtrip": true,
+      "collapse_ratio": 0.0,
+      "fold_ratio": 0.0
+    }
+  }
+}

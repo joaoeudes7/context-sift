@@ -121,6 +121,36 @@ class TorchBackendTests(unittest.TestCase):
                 self.model_path / "model.safetensors", device="cuda"
             )
 
+    def test_v2_architecture_detection(self) -> None:
+        """Torch backend detects V2 architecture from weight keys."""
+        from context_sift.torch_backend import TorchFastMinimumContextRNN
+
+        model = TorchFastMinimumContextRNN(self.model_path / "model.safetensors")
+        # Current weights are V1 (no norm/attention)
+        self.assertFalse(model._is_v2)
+        self.assertFalse(model._has_norm)
+        self.assertFalse(model._has_attention)
+
+    def test_v2_layer_norm_passthrough(self) -> None:
+        """Layer norm returns input unchanged when weights missing (V1)."""
+        import torch
+        from context_sift.torch_backend import TorchFastMinimumContextRNN
+
+        model = TorchFastMinimumContextRNN(self.model_path / "model.safetensors")
+        x = torch.randn(1, 256)
+        result = model._layer_norm(x)
+        self.assertTrue(torch.equal(x, result))
+
+    def test_v2_attention_passthrough(self) -> None:
+        """Self-attention returns input unchanged when weights missing (V1)."""
+        import torch
+        from context_sift.torch_backend import TorchFastMinimumContextRNN
+
+        model = TorchFastMinimumContextRNN(self.model_path / "model.safetensors")
+        x = torch.randn(1, 256)
+        result = model._self_attention(x)
+        self.assertTrue(torch.equal(x, result))
+
 
 if __name__ == "__main__":
     unittest.main()

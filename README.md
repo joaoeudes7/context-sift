@@ -114,6 +114,21 @@ ContextSift applies a multi-stage pipeline before the ML model scores clauses:
 
 Each stage is a pure function, composable independently. See `context_sift.lossless`, `context_sift.json_compressor`, `context_sift.payloads`, `context_sift.rules`.
 
+### Code compression (AST)
+
+Strip comments, docstrings, and redundant syntax from source code:
+
+```python
+from context_sift import compress_code
+
+result = compress_code(source, language="python")   # or "javascript"
+print(result.ratio)      # 0.305
+print(result.text)       # compressed source
+```
+
+Python: removes docstrings, comments, pass-through nodes, optional name minification.
+JS/TS: removes comments, simplifies return, collapses whitespace.
+
 ### Input contract
 
 **In scope:**
@@ -138,17 +153,19 @@ Each stage is a pure function, composable independently. See `context_sift.lossl
 
 ### Compression ratios
 
-Measured on realistic inputs:
+Measured on real-world data:
 
-| Input type | Saved |
-|---|---|
-| JSON API response (100 users) | 98.9% |
-| Repeated log lines | 98.9% |
-| Redundant prose | 95.1% |
-| JSON log entries (50 items) | 89.1% |
-| Embedded JSON in text | 76.1% |
-| Long system prompt | 70.3% |
-| Mixed prose + JSON | 64.7% |
+| Input type | Compression | Method |
+|---|---|---|
+| HDFS logs (500 lines) | 94.5% | log compression + dedup |
+| JSON log entries (100 items) | 94.4% | JSON dedup + lossless |
+| App logs (ERROR/WARN/INFO) | 96.9% | level scoring + dedup |
+| API response (50 users) | 52.6% | JSON structure + rules |
+| Wikipedia prose (ML scoring) | 37.7% | clause selection (660K BiGRU) |
+| Python source (AST) | 30.5% | docstrings + comments + pass |
+| JavaScript source (AST) | 21.9% | comments + whitespace |
+
+**Info retention**: 100% ERROR/WARN/CRITICAL preserved. 94-96% semantic similarity across all types.
 
 ## CLI
 
