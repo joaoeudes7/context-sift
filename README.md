@@ -110,9 +110,37 @@ ContextSift applies a multi-stage pipeline before the ML model scores clauses:
 2. **JSON compression** — recursive routing of embedded JSON spans; arrays of objects get first/last items + error items preserved, remainder summarized; nested objects with large strings truncated
 3. **Base64 replacement** — long base64 payloads replaced with size + SHA-256 identity
 4. **Rule-based cleanup** — filler removal, exact-duplicate deduplication
-5. **ML scoring** — 660K-param BiGRU clause selector keeps high-scoring + protected spans
+5. **Whitespace normalization** — code-safe space collapsing (preserves indentation)
+6. **ML scoring** — 660K-param BiGRU clause selector keeps high-scoring + protected spans
 
 Each stage is a pure function, composable independently. See `context_sift.lossless`, `context_sift.json_compressor`, `context_sift.payloads`, `context_sift.rules`.
+
+### Output trimming
+
+Trim redundant model output before sending downstream:
+
+```python
+from context_sift import trim_output
+
+trimmed = trim_output(model_output, context=user_prompt)
+```
+
+Removes ceremony preambles (`Sure! Let me...`, `Claro! Vou ajudar...`), trailing filler (`Let me know if...`, `Hope this helps!`), and lines that echo the context (high n-gram overlap). Supports EN, PT, ES, FR, DE.
+
+### Whitespace normalization
+
+Code-safe space collapsing — preserves indentation:
+
+```python
+from context_sift import collapse_spaces
+
+code = "def foo():\n    x  =  1\n    if   True:\n        return   True"
+print(collapse_spaces(code))
+# def foo():
+#     x = 1
+#     if True:
+#         return True
+```
 
 ### Code compression (AST)
 

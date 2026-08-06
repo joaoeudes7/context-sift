@@ -18,11 +18,122 @@ import re
 # ── ANSI ────────────────────────────────────────────────────────────────
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+_MULTI_SPACE_RE = re.compile(r"[^\S\n]{2,}")
+_MULTI_NEWLINE_RE = re.compile(r"\n{3,}")
+_TRAILING_WS_RE = re.compile(r"[ \t]+$", re.MULTILINE)
 
 
 def strip_ansi(text: str) -> str:
     """Remove ANSI CSI/SGR (color) escape sequences."""
     return _ANSI_RE.sub("", text)
+
+
+def collapse_spaces(text: str) -> str:
+    """Normalize whitespace: collapse runs of spaces/tabs, trim trailing, collapse blank lines.
+
+    - Multiple spaces/tabs → single space (preserves newlines)
+    - Trailing whitespace per line removed
+    - 3+ consecutive newlines → 2 newlines
+    - Preserves leading indentation (code-safe)
+    """
+    lines = text.splitlines()
+    result = []
+    for line in lines:
+        # Preserve leading whitespace (indentation)
+        stripped = line.lstrip()
+        leading = line[: len(line) - len(stripped)] if stripped else ""
+        # Collapse internal spaces only
+        collapsed = _MULTI_SPACE_RE.sub(" ", stripped)
+        result.append(leading + collapsed)
+    text = "\n".join(result)
+    text = _TRAILING_WS_RE.sub("", text)
+    text = _MULTI_NEWLINE_RE.sub("\n\n", text)
+    return text
+
+
+# ── Output trimming ────────────────────────────────────────────────────
+
+_CEREMONY_RE = re.compile(
+    r"^(?:"
+    r"(?:Sure|OK|Okay|Alright|Got it|Let me|I'll|I will|Here's|Here is|"
+    r"Great|Thanks|Thank you|Absolutely|Certainly|Of course|No problem|"
+    r"Let's|Shall we|I'd be happy to|I can help with that|"
+    r"Claro|Claro que sim|Com certeza|Sem problemas|"
+    r"Por supuesto|Desde luego|Sin problema|"
+    r"Bien sûr|Pas de problème|D'accord)"
+    r"[,.! ]+"
+    r")",
+    re.IGNORECASE,
+)
+_ECHO_NGRAM = 8
+
+
+def _echo_ratio(output_text: str, context_text: str, n: int = _ECHO_NGRAM) -> float:
+    """Fraction of output n-grams already present in context (measured waste)."""
+    out_words = output_text.split()
+    if len(out_words) < n:
+        return 0.0
+    ctx_words = context_text.split()
+    if len(ctx_words) < n:
+        return 0.0
+    ctx_grams = {" ".join(ctx_words[i:i + n]) for i in range(len(ctx_words) - n + 1)}
+    out_grams = [" ".join(out_words[i:i + n]) for i in range(len(out_words) - n + 1)]
+    if not out_grams:
+        return 0.0
+    return sum(1 for g in out_grams if g in ctx_grams) / len(out_grams)
+
+
+def trim_output(text: str, context: str = "") -> str:
+    """Trim redundant output: ceremony preambles, echoed code, trailing filler.
+
+    Designed for model output trimming (input-side, no proxy needed):
+    - Strips "Sure! Let me..." ceremony preambles
+    - Removes trailing "Let me know if..." / "Hope this helps!" filler
+    - Drops lines that echo context (high n-gram overlap)
+    - Collapses consecutive blank lines
+
+    Args:
+        text: Model output to trim.
+        context: Original prompt/context (for echo detection).
+    """
+    lines = text.splitlines()
+    result = []
+    skip_leading = True
+
+    for line in lines:
+        stripped = line.strip()
+
+        # Skip ceremony preamble lines
+        if skip_leading and stripped and _CEREMONY_RE.match(stripped):
+            continue
+
+        # Stop skipping once we hit real content
+        if skip_leading and stripped and not _CEREMONY_RE.match(stripped):
+            skip_leading = False
+
+        # Skip trailing filler
+        if re.match(
+            r"^(?:Let me know|Hope this helps|Feel free to ask|"
+            r"Let me know if you|If you need anything|Happy to help|"
+            r"Não hesite|Dúvida|Fique à vontade|"
+            r"N'hésitez pas|Besoin d'autre|"
+            r"Zögern Sie nicht|Lassen Sie mich wissen)",
+            stripped,
+            re.IGNORECASE,
+        ):
+            continue
+
+        # Skip echoed lines (high overlap with context)
+        if context and stripped and len(stripped.split()) >= _ECHO_NGRAM:
+            ratio = _echo_ratio(stripped, context)
+            if ratio > 0.6:
+                continue
+
+        result.append(line)
+
+    output = "\n".join(result)
+    output = _MULTI_NEWLINE_RE.sub("\n\n", output).strip()
+    return output if len(output) < len(text) else text
 
 
 # ── Run collapse ────────────────────────────────────────────────────────
