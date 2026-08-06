@@ -62,14 +62,31 @@ class PaperText(HTMLParser):
 
 
 def load_samples(root: Path, log_chars: int) -> dict[str, str]:
-    parser = PaperText()
-    parser.feed((root / "attention.html").read_text(encoding="utf-8"))
-    return {
-        "scientific": parser.text(),
-        "logs": (root / "hdfs.log").read_text(encoding="utf-8")[:log_chars],
-        "git_diff": (root / "opencode.diff").read_text(encoding="utf-8"),
-        "agent_prompt": (root / "opencode-anthropic.txt").read_text(encoding="utf-8"),
-    }
+    samples: dict[str, str] = {}
+
+    # Scientific paper (optional)
+    html_path = root / "attention.html"
+    if html_path.exists():
+        parser = PaperText()
+        parser.feed(html_path.read_text(encoding="utf-8"))
+        samples["scientific"] = parser.text()
+
+    # HDFS logs
+    log_path = root / "hdfs.log"
+    if log_path.exists():
+        samples["logs"] = log_path.read_text(encoding="utf-8")[:log_chars]
+
+    # Git diff
+    diff_path = root / "opencode.diff"
+    if diff_path.exists():
+        samples["git_diff"] = diff_path.read_text(encoding="utf-8")
+
+    # Agent prompt (optional)
+    prompt_path = root / "opencode-anthropic.txt"
+    if prompt_path.exists():
+        samples["agent_prompt"] = prompt_path.read_text(encoding="utf-8")
+
+    return samples
 
 
 def exact_recall(required: list[str], output: str) -> float:

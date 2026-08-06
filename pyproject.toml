@@ -5,12 +5,16 @@ build-backend = "hatchling.build"
 [project]
 name = "context-sift"
 version = "1.0.0"
-description = "Tiny multilingual context compactor for faster LLM prefill."
+description = "Context compression for LLM prefill — logs, JSON, prose, code. 660K-param ML model, 95% reduction on structured data."
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.11"
 authors = [{name = "João Eudes"}]
-keywords = ["llm", "context", "compaction", "prefill", "nlp", "multilingual"]
+keywords = [
+    "llm", "context", "compression", "prefill", "nlp", "multilingual",
+    "token-reduction", "log-compression", "json-compression", "code-compression",
+    "ast", "ml", "inference", "mlx", "pytorch",
+]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -20,6 +24,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Linguistic",
 ]
 dependencies = [
     "sentencepiece>=0.2",
@@ -32,8 +37,8 @@ dependencies = [
 mlx = ["mlx>=0.30"]
 
 [project.urls]
-Homepage = "https://github.com/joaoeudes7/compact_llm_summary"
-Repository = "https://github.com/joaoeudes7/compact_llm_summary"
+Homepage = "https://github.com/joaoeudes7/context-sift"
+Repository = "https://github.com/joaoeudes7/context-sift"
 
 [project.scripts]
 compact-dataset = "context_sift.cli:main"

@@ -177,9 +177,11 @@ def main():
 
     # 1. HDFS logs
     log_path = Path("data/validation/real/hdfs.log")
-    lines = log_path.read_text().splitlines()
-    samples["hdfs_logs_100"] = "\n".join(lines[:100])
-    samples["hdfs_logs_500"] = "\n".join(lines[:500])
+    if log_path.exists():
+        lines = log_path.read_text().splitlines()
+        samples["hdfs_logs_100"] = "\n".join(lines[:100])
+        if len(lines) > 100:
+            samples["hdfs_logs_500"] = "\n".join(lines[:500])
 
     # 2. Wikipedia article
     with open("data/wikipedia/long.jsonl") as f:

@@ -31,14 +31,14 @@ pip install "context-sift[mlx]"     # Apple Silicon (MLX backend, faster)
 **Git tag:**
 
 ```bash
-pip install "context-sift @ git+https://github.com/joaoeudes7/compact_llm_summary.git@v1.0.0"
+pip install "context-sift @ git+https://github.com/joaoeudes7/context-sift.git@v1.0.0"
 ```
 
 **Local dev:**
 
 ```bash
-git clone https://github.com/joaoeudes7/compact_llm_summary.git
-cd compact_llm_summary
+git clone https://github.com/joaoeudes7/context-sift.git
+cd context-sift
 pip install -e '.[mlx]'   # Apple Silicon
 # or
 pip install -e .           # CPU
@@ -240,6 +240,27 @@ PYTHONPATH=src python3 scripts/validate_multilingual_handoffs.py
 ```
 
 Multilingual fixtures cover EN, PT, ES, FR, DE, RU, AR, JA, and ZH. Technical anchors remain byte-exact.
+
+## vs Headroom
+
+| Dimension | ContextSift | Headroom |
+|---|---|---|
+| **Model** | 660K BiGRU (~2.5MB) | Kompress-v2-base (larger) |
+| **Prose compression** | **37.7%** (ML clause selection) | ~15-20% |
+| **Log compression** | **94.5%** (level scoring) | 60-95% |
+| **AST languages** | Python, JS/TS | Python, JS/TS, Go, Rust, Java, C/C++, Perl |
+| **Reversible** | No | Yes (CCR cache) |
+| **Cache-aligned** | No | Yes (KV cache prefix) |
+| **Deployment** | Library + CLI | Library + Proxy + MCP + Agent wrap |
+| **Cross-agent** | No | Yes (SharedContext) |
+| **Output trimming** | No | Yes (ceremony, effort routing) |
+| **Cold start** | **280ms** | 15-200ms |
+| **Dependencies** | torch, sentencepiece | torch + many extras |
+| **License** | MIT | MIT |
+
+**Choose ContextSift when**: you want a small, fast library with high compression and minimal dependencies. No proxy, no config, just `pip install` and `import`.
+
+**Choose Headroom when**: you need reversible compression, cross-agent memory, proxy integration, or broad AST support.
 
 ## License
 

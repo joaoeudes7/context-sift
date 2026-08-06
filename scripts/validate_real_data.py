@@ -54,6 +54,8 @@ def load_aligned_articles(n: int = 5) -> list[str]:
 def load_hdfs_logs(max_lines: int = 500) -> str:
     """Load HDFS log sample."""
     path = Path("data/validation/real/hdfs.log")
+    if not path.exists():
+        return ""
     lines = path.read_text().splitlines()[:max_lines]
     return "\n".join(lines)
 
@@ -61,6 +63,8 @@ def load_hdfs_logs(max_lines: int = 500) -> str:
 def load_app_diff() -> str:
     """Load the sample diff."""
     path = Path("data/validation/real/opencode.diff")
+    if not path.exists():
+        return ""
     return path.read_text()
 
 
