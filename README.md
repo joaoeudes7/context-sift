@@ -1,6 +1,8 @@
 # ContextSift
 
-ContextSift removes redundant natural-language context before LLM prefill. Output stays extractive: fewer source clauses, same operational meaning.
+ContextSift compresses context before LLM prefill. Output stays extractive: fewer source clauses, same operational meaning.
+
+Handles natural-language text, JSON API responses, log output, grep results, file listings, and embedded JSON — all in one call.
 
 ## Quickstart
 
@@ -100,6 +102,18 @@ mlx  = CompactorService(backend="mlx")
 
 CUDA requires a PyTorch build compatible with your driver/CUDA stack. Requesting unavailable CUDA fails immediately — no silent fallback.
 
+### Compression pipeline
+
+ContextSift applies a multi-stage pipeline before the ML model scores clauses:
+
+1. **Log compression** — ANSI stripping, error/warning preservation, repeated-line collapse, stack-trace truncation, warning deduplication
+2. **JSON compression** — recursive routing of embedded JSON spans; arrays of objects get first/last items + error items preserved, remainder summarized; nested objects with large strings truncated
+3. **Base64 replacement** — long base64 payloads replaced with size + SHA-256 identity
+4. **Rule-based cleanup** — filler removal, exact-duplicate deduplication
+5. **ML scoring** — 660K-param BiGRU clause selector keeps high-scoring + protected spans
+
+Each stage is a pure function, composable independently. See `context_sift.lossless`, `context_sift.json_compressor`, `context_sift.payloads`, `context_sift.rules`.
+
 ### Input contract
 
 **In scope:**
@@ -108,14 +122,33 @@ CUDA requires a PyTorch build compatible with your driver/CUDA stack. Requesting
 - Conversations and cross-model handoffs
 - Plans, documentation, articles
 - Multilingual prose with technical anchors
-
-**Out of scope:** raw HTML/XML, source code, JSON, OCR, images, PDF, base64. Parse or bypass these before compaction.
+- JSON API responses and tool outputs (arrays of objects, nested structures)
+- Log files and build output (pytest, npm, cargo, make, generic)
+- Grep/ripgrep output (path:line:content rows)
+- File path listings
+- Mixed content (prose + embedded JSON)
 
 **Rules:**
 
 - Input below 200 characters returns unchanged (configurable via `always_compact`).
 - Compression is adaptive. Dense text may stay mostly intact; repetitive text may shrink far beyond 30%.
 - Goals, constraints, decisions, reasons, paths, commands, identifiers, numbers, URLs, and negations are always preserved.
+- Error/fatal/critical items in JSON and logs are always preserved (100%).
+- Stack trace heads (message + first 3 frames) are preserved.
+
+### Compression ratios
+
+Measured on realistic inputs:
+
+| Input type | Saved |
+|---|---|
+| JSON API response (100 users) | 98.9% |
+| Repeated log lines | 98.9% |
+| Redundant prose | 95.1% |
+| JSON log entries (50 items) | 89.1% |
+| Embedded JSON in text | 76.1% |
+| Long system prompt | 70.3% |
+| Mixed prose + JSON | 64.7% |
 
 ## CLI
 

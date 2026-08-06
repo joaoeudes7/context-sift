@@ -10,6 +10,8 @@ from typing import Literal
 
 from context_sift.clause_dataset import split_clauses
 from context_sift.git_diff import compact_git_diff
+from context_sift.json_compressor import compact_json
+from context_sift.lossless import compact_logs
 from context_sift.payloads import compact_base64
 from context_sift.rules import compress_rules, protected_sentence_spans
 
@@ -79,7 +81,7 @@ class Compactor:
             return compact_git_diff(text)
         if not self.always_compact and len(text) < 200:
             return text
-        text = compress_rules(compact_base64(text)).text
+        text = compress_rules(compact_json(compact_base64(compact_logs(text)))).text
         if not self.always_compact and len(text) < 200:
             return text
         clauses = split_clauses(text)
