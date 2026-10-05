@@ -245,12 +245,13 @@ Use the proxy for clients without a plugin seam — any OpenAI-compatible tool. 
 
 ## OpenCode plugin
 
-A V2 plugin that compacts the transcript before every model request, using a warm `context-sift --serve` daemon. Fewer tokens per request means context compaction runs less often and smaller. It supersedes the [proxy](#proxy-mode) inside OpenCode; keep the proxy for other clients.
+A V2 plugin that compacts the transcript before every model request, using one shared warm daemon. Fewer tokens per request means context compaction runs less often and smaller. It supersedes the [proxy](#proxy-mode) inside OpenCode; keep the proxy for other clients.
 
 ```bash
 pip install context-sift        # provides the `context-sift` command
-context-sift --serve            # sanity check: prints {"ready": true}, then EOFs
 ```
+
+One engine process holds the model; every plugin runtime and `opencode` CLI invocation connects to it over a Unix socket. It spawns on demand and exits after an idle timeout — you never start it by hand.
 
 Register the in-repo plugin in `opencode.jsonc`:
 

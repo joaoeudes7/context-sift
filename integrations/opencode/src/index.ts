@@ -77,9 +77,10 @@ async function acquireEngine(options: Record<string, unknown>): Promise<Engine> 
   }
   const engine = new Engine({
     command: str(options.command, "context-sift"),
-    args: stringArray(options.args, ["--serve"]),
     timeoutMs: num(options.timeoutMs, 30_000),
-    onStderr: (line) => console.error(`[context-sift] ${line}`),
+    idleTimeout: num(options.idleTimeout, 60),
+    ...(typeof options.socketPath === "string" ? { socketPath: options.socketPath } : {}),
+    ...(Array.isArray(options.args) ? { args: stringArray(options.args, []) } : {}),
   })
   await engine.start()
   sharedEngine = engine

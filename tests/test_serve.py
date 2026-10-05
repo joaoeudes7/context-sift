@@ -1,8 +1,13 @@
 import io
 import json
+import os
 import unittest
 
-from context_sift.serve import serve
+from context_sift.serve import acquire_singleton, serve, serve_socket, socket_is_live
+
+from pathlib import Path
+import tempfile
+import asyncio
 
 
 class _FakeService:
@@ -58,6 +63,45 @@ class ServeTests(unittest.TestCase):
 
         self.assertEqual(len(responses), 2)
         self.assertEqual(service.calls, ["x"])
+
+
+class SocketServeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_roundtrip_then_idle_exit(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "s.sock"
+            service = _FakeService()
+            server = asyncio.create_task(serve_socket(path, service, idle_timeout=0.2))
+            for _ in range(200):
+                if path.exists():
+                    break
+                await asyncio.sleep(0.01)
+
+            reader, writer = await asyncio.open_unix_connection(str(path))
+            writer.write(b'{"id":1,"text":"hello world"}\n')
+            await writer.drain()
+            response = json.loads(await reader.readline())
+
+            self.assertEqual(response["id"], 1)
+            self.assertEqual(response["text"], "hello")
+            self.assertEqual(service.calls, ["hello world"])
+
+            writer.close()
+            await asyncio.wait_for(server, timeout=5)
+            self.assertFalse(path.exists())
+
+
+class SingletonTests(unittest.TestCase):
+    def test_socket_is_live_false_when_absent(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertFalse(socket_is_live(Path(directory) / "nope.sock"))
+
+    def test_acquire_singleton_is_exclusive(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "s.sock"
+            first = acquire_singleton(path)
+            self.assertIsNotNone(first)
+            self.assertIsNone(acquire_singleton(path))  # already held
+            os.close(first)  # type: ignore[arg-type]
 
 
 if __name__ == "__main__":

@@ -1,40 +1,49 @@
 # context-sift-opencode
 
-OpenCode V2 plugin that compacts the transcript sent to the model, using a warm
-[ContextSift](../..) daemon. It reduces tokens per request — and therefore how
-often and how large context compaction has to be.
+OpenCode V2 plugin that compacts the transcript sent to the model, using a
+shared [ContextSift](../..) daemon. It reduces tokens per request — and
+therefore how often and how large context compaction has to be.
 
 The plugin is the **decision layer** ("when/what to compress"). ContextSift is
 the **compression engine** (extractive, 660K-param ML model).
 
 ## Install
 
-1. Install the engine and make it available on `PATH`:
+1. Install the engine so `context-sift` is on `PATH`:
 
    ```sh
    pip install context-sift
-   context-sift --serve   # sanity check: prints {"ready": true}, then EOFs
    ```
 
-2. Point OpenCode at the plugin directory (`opencode.jsonc`):
+2. Install the plugin as an auto-discovered local file:
 
-   ```jsonc
-   {
-     "plugins": [
-       {
-         "package": "/absolute/path/to/integrations/opencode",
-         "options": { "mode": "auto" }
-       }
-     ]
-   }
+   ```sh
+   ./install.sh
+   opencode reload
    ```
+
+   (`opencode plugin add` only accepts npm/Git specs, so a local checkout goes
+   through `~/.config/opencode/plugins/` auto-discovery.)
+
+## Lifecycle — one warm daemon, shared
+
+Every plugin runtime and every `opencode` CLI invocation talks to **one**
+engine process over a Unix socket (`<tmpdir>/context-sift-<uid>.sock`):
+
+- A client connects; if no daemon is listening it spawns one (detached) and waits.
+- A `flock` start-lock plus a socket liveness probe guarantee exactly one process
+  loads the model — concurrent spawns become waiters and exit once the socket is up.
+- The daemon stays warm while any client is connected, then exits
+  `idleTimeout` seconds after the last client leaves (default 60) and unlinks
+  the socket. The next request re-spawns it.
+- It does **not** die per request — that would forfeit model reuse.
 
 ## How it works
 
 - Registers the `context` and `compaction` session hooks. Both mutate **only the
   outgoing request** — persisted history is never touched.
 - Keeps the most recent `keepRecent` messages verbatim.
-- Never touches failures/warnings (ContextSift already preserves them).
+- Never touches failures/warnings, `tool-call` inputs, or reasoning.
 - Very large payloads are head/tail trimmed before hitting the engine.
 
 ```
@@ -53,19 +62,8 @@ messages → recency filter → failure guard → size gate → head/tail
 | `maxChars` | `100000` | Head/tail trim threshold |
 | `compactSystem` | `false` | Also compact system instructions |
 | `command` | `"context-sift"` | Engine executable |
-| `args` | `["--serve"]` | Engine arguments |
-| `timeoutMs` | `30000` | Per-request engine timeout |
-
-If `context-sift` is not on `PATH`, run it via Python:
-
-```jsonc
-{
-  "options": {
-    "command": "python3",
-    "args": ["-m", "context_sift.runtime_cli", "--serve"]
-  }
-}
-```
+| `socketPath` | tmp dir | Shared daemon socket |
+| `idleTimeout` | `60` | Seconds the daemon stays warm after the last client |
 
 ## Tests
 
