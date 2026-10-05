@@ -4,7 +4,7 @@
   "description": "OpenCode V2 plugin: compact context before model requests with ContextSift.",
   "type": "module",
   "main": "src/index.ts",
-  "exports": { ".": "./src/index.ts" },
+  "exports": { ".": "./src/index.ts", "./tui": "./src/tui.tsx" },
   "scripts": { "test": "node --test test/*.test.ts" },
   "keywords": ["opencode", "plugin", "context", "compression", "llm"],
   "license": "MIT",

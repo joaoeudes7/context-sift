@@ -71,6 +71,14 @@ Each compaction sends `source`, `cwd`, and the original payload size to the
 engine, which logs sizes to a local ledger. Run `context-sift gain` for a
 per-project/per-day reduction summary (see the main README's *Savings report*).
 
+### TUI status
+
+The plugin also ships a CLI (TUI) entrypoint (`src/tui.tsx`) that puts a live
+savings line in the footer (`home.footer.status` / `prompt.footer.status`),
+e.g. `sift  337.0K saved · 65.0% · 67 reqs · today 17.0K`. It reads
+`context-sift gain --oneline` (no model load) once on load and after each
+completed session execution. `install.sh` installs both entrypoints.
+
 ## Tests
 
 ```sh

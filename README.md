@@ -293,6 +293,9 @@ context-sift gain --reset --yes   # wipe the ledger
 The ledger lives at `${XDG_DATA_HOME:-~/.local/share}/context-sift/gain.jsonl`
 (override with `CONTEXT_SIFT_GAIN_FILE`). Token counts use a chars/4 estimate.
 
+Inside OpenCode, the plugin's TUI entrypoint shows the same
+`context-sift gain --oneline` summary live in the footer.
+
 ## Synthetic dataset
 
 Generate training data with an OpenRouter teacher:
