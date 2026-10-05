@@ -44,6 +44,8 @@ pip install -e '.[mlx]'   # Apple Silicon
 pip install -e .           # CPU
 ```
 
+**OpenCode plugin (V2):** installing provides the `context-sift` command; the plugin that compacts each model request lives in [`integrations/opencode`](integrations/opencode). See [OpenCode plugin](#opencode-plugin).
+
 ## Use as a library
 
 ```python
@@ -239,6 +241,36 @@ Key behavior:
 - Streaming SSE chunks forwarded live (no buffering)
 - `GET /health` returns `{"status":"ok","compactor":true}`
 
+Use the proxy for clients without a plugin seam — any OpenAI-compatible tool. Inside OpenCode, use the [plugin](#opencode-plugin) instead: same engine, but policy-gated and non-destructive.
+
+## OpenCode plugin
+
+A V2 plugin that compacts the transcript before every model request, using a warm `context-sift --serve` daemon. Fewer tokens per request means context compaction runs less often and smaller. It supersedes the [proxy](#proxy-mode) inside OpenCode; keep the proxy for other clients.
+
+```bash
+pip install context-sift        # provides the `context-sift` command
+context-sift --serve            # sanity check: prints {"ready": true}, then EOFs
+```
+
+Register the in-repo plugin in `opencode.jsonc`:
+
+```jsonc
+{
+  "plugins": [
+    {
+      "package": "/absolute/path/to/context-sift/integrations/opencode",
+      "options": { "mode": "auto" }
+    }
+  ]
+}
+```
+
+- Non-destructive: edits only the outgoing request (`context` / `compaction` hooks), never persisted history.
+- Keeps the most recent messages verbatim; never touches failures, warnings, tool-call inputs, or reasoning.
+- Options: `mode` (`off` | `auto` | `aggressive`), `minChars`, `keepRecent`, `budgetRatio`, `maxChars`, `compactSystem`.
+
+See [`integrations/opencode/README.md`](integrations/opencode/README.md) for details and tests (`node --test`).
+
 ## Synthetic dataset
 
 Generate training data with an OpenRouter teacher:
@@ -284,14 +316,14 @@ Multilingual fixtures cover EN, PT, ES, FR, DE, RU, AR, JA, and ZH. Technical an
 | **AST languages** | Python, JS/TS | Python, JS/TS, Go, Rust, Java, C/C++, Perl |
 | **Reversible** | No | Yes (CCR cache) |
 | **Cache-aligned** | No | Yes (KV cache prefix) |
-| **Deployment** | Library + CLI | Library + Proxy + MCP + Agent wrap |
+| **Deployment** | Library + CLI + Proxy + OpenCode plugin | Library + Proxy + MCP + Agent wrap |
 | **Cross-agent** | No | Yes (SharedContext) |
 | **Output trimming** | No | Yes (ceremony, effort routing) |
 | **Cold start** | **280ms** | 15-200ms |
 | **Dependencies** | torch, sentencepiece | torch + many extras |
 | **License** | MIT | MIT |
 
-**Choose ContextSift when**: you want a small, fast library with high compression and minimal dependencies. No proxy, no config, just `pip install` and `import`.
+**Choose ContextSift when**: you want a small, fast library with high compression and minimal dependencies. Library, CLI, OpenAI-compatible proxy, and an OpenCode plugin — `pip install` and go.
 
 **Choose Headroom when**: you need reversible compression, cross-agent memory, proxy integration, or broad AST support.
 
