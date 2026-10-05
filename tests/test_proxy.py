@@ -12,6 +12,22 @@ import httpx
 from context_sift.proxy import _compact_content, create_app
 
 HAS_FASTAPI = True
+
+
+def setUpModule() -> None:  # keep compaction records out of the real ledger
+    import os
+    import tempfile
+
+    global _tmp
+    _tmp = tempfile.TemporaryDirectory()
+    os.environ["CONTEXT_SIFT_GAIN_FILE"] = os.path.join(_tmp.name, "gain.jsonl")
+
+
+def tearDownModule() -> None:
+    import os
+
+    os.environ.pop("CONTEXT_SIFT_GAIN_FILE", None)
+    _tmp.cleanup()
 try:
     from fastapi.testclient import TestClient
 except ImportError:

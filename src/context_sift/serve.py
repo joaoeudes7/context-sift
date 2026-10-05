@@ -16,10 +16,15 @@ import time
 from pathlib import Path
 from typing import IO, Any, Callable
 
+from context_sift.gain import record
 from context_sift.msc import CompactorService
 
 
-def _process(line: str, service: CompactorService) -> dict[str, Any]:
+def _process(
+    line: str,
+    service: CompactorService,
+    sink: Callable[[dict[str, Any]], None] | None = record,
+) -> dict[str, Any]:
     identifier: Any = None
     try:
         request = json.loads(line)
@@ -27,13 +32,31 @@ def _process(line: str, service: CompactorService) -> dict[str, Any]:
         text = request["text"]
         if not isinstance(text, str):
             raise TypeError("text must be a string")
+        meta = request.get("meta") if isinstance(request.get("meta"), dict) else {}
         started = time.perf_counter()
         result = service(text)
+        elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+
+        if sink is not None:
+            original = meta.get("in_chars")
+            if not isinstance(original, (int, float)) or original <= 0:
+                original = len(text)
+            sink(
+                {
+                    "source": str(meta.get("source") or "cli"),
+                    "cwd": str(meta.get("cwd") or ""),
+                    "model": str(meta.get("model") or ""),
+                    "in": int(original),
+                    "out": len(result),
+                    "ms": elapsed_ms,
+                }
+            )
+
         return {
             "id": identifier,
             "text": result,
             "ratio": round(len(result) / len(text), 4) if text else 1.0,
-            "ms": round((time.perf_counter() - started) * 1000, 2),
+            "ms": elapsed_ms,
         }
     except Exception as error:  # a bad line must never kill the daemon
         return {"id": identifier, "error": f"{type(error).__name__}: {error}"}
@@ -180,7 +203,7 @@ async def serve_socket(
         server = await asyncio.start_unix_server(handler, path=str(socket_path))
 
     async def reap_when_idle() -> None:
-        interval = max(1.0, idle_timeout / 4)
+        interval = max(0.05, min(1.0, idle_timeout / 4))
         while True:
             await asyncio.sleep(interval)
             if state["active"] == 0 and loop.time() - state["last"] > idle_timeout:

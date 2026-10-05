@@ -57,7 +57,7 @@ export class Engine {
     return this.started
   }
 
-  compact(text: string): Promise<string> {
+  compact(text: string, meta?: Record<string, unknown>): Promise<string> {
     const socket = this.socket
     if (!socket || this.disposed) return Promise.reject(new Error("engine not started"))
     const id = this.nextId++
@@ -68,7 +68,9 @@ export class Engine {
         reject(new Error(`context-sift timed out after ${timeoutMs}ms`))
       }, timeoutMs)
       this.pending.set(id, { resolve, reject, timer })
-      socket.write(JSON.stringify({ id, text }) + "\n")
+      const payload: Record<string, unknown> = { id, text }
+      if (meta) payload.meta = meta
+      socket.write(JSON.stringify(payload) + "\n")
     })
   }
 
@@ -122,7 +124,11 @@ export class Engine {
         socket.on("data", (chunk: string) => this.onData(chunk))
         socket.on("error", (error) => this.failAll(error))
         socket.on("close", () => {
-          if (!this.disposed) this.failAll(new Error("context-sift daemon connection closed"))
+          if (!this.disposed && this.socket === socket) {
+            this.socket = undefined
+            this.started = undefined
+            this.failAll(new Error("context-sift daemon connection closed"))
+          }
         })
         this.socket = socket
         resolve(true)

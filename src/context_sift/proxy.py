@@ -12,6 +12,7 @@ import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from context_sift.gain import record
 from context_sift.msc import CompactorService
 
 log = logging.getLogger(__name__)
@@ -19,16 +20,22 @@ log = logging.getLogger(__name__)
 _UPSTREAM_DEFAULT = "https://api.openai.com/v1"
 
 
+def _sift(sift: CompactorService, text: str) -> str:
+    result = sift(text)
+    record({"source": "proxy", "cwd": os.getcwd(), "in": len(text), "out": len(result)})
+    return result
+
+
 def _compact_content(sift: CompactorService, content: Any) -> Any:
     """Compact string content; leave non-string (multimodal) untouched."""
     if isinstance(content, str):
-        return sift(content)
+        return _sift(sift, content)
     if isinstance(content, list):
         parts: list[Any] = []
         for item in content:
             if isinstance(item, dict) and item.get("type") == "text":
                 item = dict(item)
-                item["text"] = sift(item["text"])
+                item["text"] = _sift(sift, item["text"])
             parts.append(item)
         return parts
     return content

@@ -65,6 +65,12 @@ messages → recency filter → failure guard → size gate → head/tail
 | `socketPath` | tmp dir | Shared daemon socket |
 | `idleTimeout` | `60` | Seconds the daemon stays warm after the last client |
 
+## Savings
+
+Each compaction sends `source`, `cwd`, and the original payload size to the
+engine, which logs sizes to a local ledger. Run `context-sift gain` for a
+per-project/per-day reduction summary (see the main README's *Savings report*).
+
 ## Tests
 
 ```sh

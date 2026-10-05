@@ -5,6 +5,21 @@ import unittest
 from pathlib import Path
 
 
+def setUpModule() -> None:  # keep compaction records out of the real ledger
+    import os
+
+    global _tmp
+    _tmp = tempfile.TemporaryDirectory()
+    os.environ["CONTEXT_SIFT_GAIN_FILE"] = os.path.join(_tmp.name, "gain.jsonl")
+
+
+def tearDownModule() -> None:
+    import os
+
+    os.environ.pop("CONTEXT_SIFT_GAIN_FILE", None)
+    _tmp.cleanup()
+
+
 class RuntimeCliTests(unittest.TestCase):
     text = "Keep exact path src/auth/session.ts and timeout 30 seconds. " * 8
 

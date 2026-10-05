@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import sys
 import time
 from pathlib import Path
@@ -12,6 +13,11 @@ from context_sift.msc import CompactorService
 
 
 def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] == "gain":
+        from context_sift.gain import gain_cli
+
+        raise SystemExit(gain_cli(sys.argv[2:]))
+
     parser = argparse.ArgumentParser(description="Compact text before LLM prefill.")
     parser.add_argument("file", nargs="?", type=Path, help="UTF-8 input; defaults to stdin")
     parser.add_argument(
@@ -54,7 +60,11 @@ def main() -> None:
         return
     text = args.file.read_text(encoding="utf-8") if args.file else sys.stdin.read()
     with CompactorService() as sift:
-        sys.stdout.write(sift(text))
+        result = sift(text)
+        sys.stdout.write(result)
+    from context_sift.gain import record
+
+    record({"source": "cli", "cwd": os.getcwd(), "in": len(text), "out": len(result)})
 
 
 if __name__ == "__main__":

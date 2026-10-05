@@ -8,8 +8,11 @@ import {
 
 /** Anything that can compact a string, e.g. `Engine`. */
 export interface Compactor {
-  compact(text: string): Promise<string>
+  compact(text: string, meta?: Record<string, unknown>): Promise<string>
 }
+
+/** Session cwd, reported to the engine so `gain` can group savings by project. */
+const SESSION_CWD = process.cwd()
 
 /**
  * Shape of the OpenCode V2 request hook payload, narrowed to what we touch.
@@ -125,7 +128,11 @@ async function compactString(
 ): Promise<string | undefined> {
   if (!shouldConsider(text, config)) return undefined
   try {
-    return await engine.compact(trimHeadTail(text, config.maxChars))
+    return await engine.compact(trimHeadTail(text, config.maxChars), {
+      source: "opencode",
+      cwd: SESSION_CWD,
+      in_chars: text.length,
+    })
   } catch (error) {
     console.error(`[context-sift] compaction failed, passing through: ${error}`)
     return undefined

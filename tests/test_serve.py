@@ -28,6 +28,14 @@ def _run(lines: list[str]) -> tuple[list[dict], _FakeService]:
 
 
 class ServeTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        os.environ["CONTEXT_SIFT_GAIN_FILE"] = str(Path(self._tmp.name) / "gain.jsonl")
+
+    def tearDown(self) -> None:
+        os.environ.pop("CONTEXT_SIFT_GAIN_FILE", None)
+        self._tmp.cleanup()
+
     def test_ready_line_then_roundtrip(self) -> None:
         responses, service = _run(['{"id":1,"text":"hello world"}'])
 
@@ -64,8 +72,26 @@ class ServeTests(unittest.TestCase):
         self.assertEqual(len(responses), 2)
         self.assertEqual(service.calls, ["x"])
 
+    def test_records_gain_from_meta(self) -> None:
+        _run(['{"id":1,"text":"hello world","meta":{"source":"opencode","cwd":"/p","in_chars":100}}'])
+
+        ledger = Path(os.environ["CONTEXT_SIFT_GAIN_FILE"]).read_text().splitlines()
+        entry = json.loads(ledger[-1])
+        self.assertEqual(entry["source"], "opencode")
+        self.assertEqual(entry["cwd"], "/p")
+        self.assertEqual(entry["in"], 100)
+        self.assertEqual(entry["out"], 5)
+
 
 class SocketServeTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        os.environ["CONTEXT_SIFT_GAIN_FILE"] = str(Path(self._tmp.name) / "gain.jsonl")
+
+    def tearDown(self) -> None:
+        os.environ.pop("CONTEXT_SIFT_GAIN_FILE", None)
+        self._tmp.cleanup()
+
     async def test_roundtrip_then_idle_exit(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "s.sock"

@@ -272,6 +272,27 @@ Register the in-repo plugin in `opencode.jsonc`:
 
 See [`integrations/opencode/README.md`](integrations/opencode/README.md) for details and tests (`node --test`).
 
+## Savings report
+
+Every compaction — plugin, proxy, or one-shot CLI — appends one line to a local
+ledger (sizes and paths only, never the text). `context-sift gain` summarizes it
+like `rtk gain`:
+
+```bash
+context-sift gain                 # totals, by source and project
+context-sift gain --oneline       # one statusline-friendly line
+context-sift gain --spark         # daily savings sparkline
+context-sift gain --days 7        # only the last N days
+context-sift gain --graph         # daily savings bars
+context-sift gain -H              # recent requests
+context-sift gain -p              # filter to the current directory
+context-sift gain --json          # machine-readable
+context-sift gain --reset --yes   # wipe the ledger
+```
+
+The ledger lives at `${XDG_DATA_HOME:-~/.local/share}/context-sift/gain.jsonl`
+(override with `CONTEXT_SIFT_GAIN_FILE`). Token counts use a chars/4 estimate.
+
 ## Synthetic dataset
 
 Generate training data with an OpenRouter teacher:

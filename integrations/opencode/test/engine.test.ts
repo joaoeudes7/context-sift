@@ -22,9 +22,10 @@ const server = net.createServer((socket) => {
       const line = buffer.slice(0, index);
       buffer = buffer.slice(index + 1);
       const request = JSON.parse(line);
+      const prefix = request.meta && request.meta.source ? request.meta.source + ":" : "";
       const response = request.text === "boom"
         ? { id: request.id, error: "nope" }
-        : { id: request.id, text: request.text.toUpperCase() };
+        : { id: request.id, text: prefix + request.text.toUpperCase() };
       socket.write(JSON.stringify(response) + "\\n");
     }
   });
@@ -70,6 +71,13 @@ test("engine round-trips requests in order", async () => {
   await e.start()
   assert.equal(await e.compact("hello"), "HELLO")
   assert.equal(await e.compact("world"), "WORLD")
+  e.stop()
+})
+
+test("engine forwards per-request metadata", async () => {
+  const e = engine()
+  await e.start()
+  assert.equal(await e.compact("x", { source: "opencode", in_chars: 42 }), "opencode:X")
   e.stop()
 })
 
