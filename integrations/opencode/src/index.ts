@@ -1,5 +1,3 @@
-import { Plugin } from "@opencode/plugin"
-
 import { compactEvent } from "./compact.ts"
 import { Engine } from "./engine.ts"
 import { DEFAULTS, type PolicyConfig } from "./policy.ts"
@@ -9,19 +7,46 @@ import { DEFAULTS, type PolicyConfig } from "./policy.ts"
  * the warm ContextSift daemon. Non-destructive by design — it edits only the
  * outgoing request (the `context` / `compaction` hooks), never persisted history.
  * Tool-call/result pairing and failure output are always preserved.
+ *
+ * Exported as a plain definition (not `Plugin.define`) so it also loads as a
+ * local file under `.opencode/plugins/` without resolving `@opencode/plugin`.
  */
-export default Plugin.define({
+
+interface HookEvent {
+  system: readonly unknown[]
+  messages: readonly unknown[]
+}
+
+interface Registration {
+  dispose(): Promise<void>
+}
+
+interface SessionHookContext {
+  options: Record<string, unknown>
+  session: {
+    hook(
+      name: "context" | "compaction",
+      callback: (event: HookEvent) => void | Promise<void>,
+    ): Promise<Registration>
+  }
+  model: {
+    list(): Promise<readonly { providerID: string; id: string; limit?: { context?: number } }[]>
+    default(): Promise<{ providerID: string; modelID: string } | undefined>
+  }
+}
+
+export default {
   id: "context-sift",
 
-  async setup(ctx) {
+  async setup(ctx: SessionHookContext): Promise<() => Promise<void>> {
     const config = resolveConfig(ctx.options)
-    const engine = new Engine({
-      command: str(ctx.options.command, "context-sift"),
-      args: stringArray(ctx.options.args, ["--serve"]),
-      timeoutMs: num(ctx.options.timeoutMs, 30_000),
-      onStderr: (line) => console.error(`[context-sift] ${line}`),
-    })
-    await engine.start()
+    let engine: Engine
+    try {
+      engine = await acquireEngine(ctx.options)
+    } catch (error) {
+      console.error(`[context-sift] engine unavailable, plugin disabled: ${error}`)
+      return async () => {}
+    }
 
     const contextLimit = await readContextLimit(ctx)
 
@@ -35,19 +60,43 @@ export default Plugin.define({
     return async () => {
       await contextRegistration.dispose()
       await compactionRegistration.dispose()
-      await engine.stop()
+      releaseEngine()
     }
   },
-})
+}
 
-type ModelContext = {
-  model: {
-    list(): Promise<readonly { providerID: string; id: string; limit?: { context?: number } }[]>
-    default(): Promise<{ providerID: string; modelID: string } | undefined>
+// One warm daemon per OpenCode server process, shared by every plugin instance
+// (one instance loads per location). Reference-counted so the last teardown stops it.
+let sharedEngine: Engine | undefined
+let sharedUsers = 0
+
+async function acquireEngine(options: Record<string, unknown>): Promise<Engine> {
+  if (sharedEngine) {
+    sharedUsers++
+    return sharedEngine
+  }
+  const engine = new Engine({
+    command: str(options.command, "context-sift"),
+    args: stringArray(options.args, ["--serve"]),
+    timeoutMs: num(options.timeoutMs, 30_000),
+    onStderr: (line) => console.error(`[context-sift] ${line}`),
+  })
+  await engine.start()
+  sharedEngine = engine
+  sharedUsers = 1
+  return engine
+}
+
+function releaseEngine(): void {
+  sharedUsers = Math.max(0, sharedUsers - 1)
+  if (sharedUsers === 0 && sharedEngine) {
+    const engine = sharedEngine
+    sharedEngine = undefined
+    void engine.stop()
   }
 }
 
-async function readContextLimit(ctx: ModelContext): Promise<number | undefined> {
+async function readContextLimit(ctx: SessionHookContext): Promise<number | undefined> {
   try {
     const selected = await ctx.model.default()
     if (!selected) return undefined

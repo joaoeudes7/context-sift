@@ -8,6 +8,5 @@
   "scripts": { "test": "node --test test/*.test.ts" },
   "keywords": ["opencode", "plugin", "context", "compression", "llm"],
   "license": "MIT",
-  "peerDependencies": { "@opencode/plugin": "*" },
   "devDependencies": { "@types/node": "^26.0.0", "typescript": "^5.7.0" }
 }
