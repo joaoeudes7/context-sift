@@ -40,8 +40,10 @@ engine process over a Unix socket (`<tmpdir>/context-sift-<uid>.sock`):
 
 ## How it works
 
-- Registers the `context` and `compaction` session hooks. Both mutate **only the
-  outgoing request** — persisted history is never touched.
+- Registers the `context` session hook (the agent-loop request). `compaction` is
+  opt-in (`compactSummaries` or `mode: "max"`) because its summaries
+  persist and pre-compressing the summarizer input can reduce fidelity.
+- Both mutate **only the outgoing request** — persisted history is never touched.
 - Keeps the most recent `keepRecent` messages verbatim.
 - Never touches failures/warnings, `tool-call` inputs, or reasoning.
 - Very large payloads are head/tail trimmed before hitting the engine.
@@ -55,12 +57,13 @@ messages → recency filter → failure guard → size gate → head/tail
 
 | Option | Default | Meaning |
 |---|---|---|
-| `mode` | `"auto"` | `off` \| `auto` \| `aggressive` |
+| `mode` | `"auto"` | `off` \| `auto` \| `max` (`max` also enables `compactSummaries`) |
 | `minChars` | `2000` | Skip payloads smaller than this |
 | `keepRecent` | `6` | Recent messages kept verbatim |
 | `budgetRatio` | `0` | Only act past this fraction of the context window (`0` = always) |
 | `maxChars` | `100000` | Head/tail trim threshold |
 | `compactSystem` | `false` | Also compact system instructions |
+| `compactSummaries` | `false` | Also compact the transcript sent to OpenCode's summarizer (can reduce checkpoint fidelity) |
 | `command` | `"context-sift"` | Engine executable |
 | `socketPath` | tmp dir | Shared daemon socket |
 | `idleTimeout` | `60` | Seconds the daemon stays warm after the last client |
@@ -78,6 +81,11 @@ savings line in the footer (`home.footer.status` / `prompt.footer.status`),
 e.g. `sift  337.0K saved · 65.0% · 67 reqs · today 17.0K`. It reads
 `context-sift gain --oneline` (no model load) once on load and after each
 completed session execution. `install.sh` installs both entrypoints.
+
+A `ContextSift: status & modes` palette command (slash `/sift`, alias `/gain`)
+shows the current savings and mode, and switches it: `/sift off|auto|max`. The
+mode is **machine-global** (`~/.local/share/context-sift/mode`, override with
+`CONTEXT_SIFT_MODE_FILE`), not per-project.
 
 ## Tests
 

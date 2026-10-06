@@ -11,9 +11,6 @@ export interface Compactor {
   compact(text: string, meta?: Record<string, unknown>): Promise<string>
 }
 
-/** Session cwd, reported to the engine so `gain` can group savings by project. */
-const SESSION_CWD = process.cwd()
-
 /**
  * Shape of the OpenCode V2 request hook payload, narrowed to what we touch.
  * Confirmed against `@opencode/ai@2.0.22`:
@@ -41,6 +38,7 @@ export async function compactEvent(
   engine: Compactor,
   config: PolicyConfig,
   contextLimit: number | undefined,
+  meta: Record<string, unknown> = {},
 ): Promise<void> {
   if (config.mode === "off") return
 
@@ -48,34 +46,40 @@ export async function compactEvent(
   if (!budgetOpen(totalTokens, contextLimit, config)) return
 
   if (config.compactSystem) {
-    for (const part of event.system) await compactTextField(asPart(part), engine, config)
+    for (const part of event.system) await compactTextField(asPart(part), engine, config, meta)
   }
 
   // Keep the most recent messages verbatim: they carry the live task.
   const keep = Math.max(0, event.messages.length - config.keepRecent)
   for (let index = 0; index < keep; index++) {
-    await compactMessage(event.messages[index], engine, config)
+    await compactMessage(event.messages[index], engine, config, meta)
   }
 }
 
-async function compactMessage(message: unknown, engine: Compactor, config: PolicyConfig): Promise<void> {
+async function compactMessage(
+  message: unknown,
+  engine: Compactor,
+  config: PolicyConfig,
+  meta: Record<string, unknown>,
+): Promise<void> {
   const content = (message as MessageLike | null)?.content
   if (!Array.isArray(content)) return
-  for (const part of content) await compactContentPart(asPart(part), engine, config)
+  for (const part of content) await compactContentPart(asPart(part), engine, config, meta)
 }
 
 async function compactContentPart(
   part: ContentPartLike | null,
   engine: Compactor,
   config: PolicyConfig,
+  meta: Record<string, unknown>,
 ): Promise<void> {
   if (!part) return
   switch (part.type) {
     case "text":
-      await compactTextField(part, engine, config)
+      await compactTextField(part, engine, config, meta)
       return
     case "tool-result":
-      await compactToolResult(part, engine, config)
+      await compactToolResult(part, engine, config, meta)
       return
     default:
       // media, tool-call (structured input), reasoning, compaction, effort: untouched.
@@ -88,9 +92,10 @@ async function compactTextField(
   part: ContentPartLike | null,
   engine: Compactor,
   config: PolicyConfig,
+  meta: Record<string, unknown>,
 ): Promise<void> {
   if (!part || part.type !== "text" || typeof part.text !== "string") return
-  const compacted = await compactString(part.text, engine, config)
+  const compacted = await compactString(part.text, engine, config, meta)
   if (compacted !== undefined) part.text = compacted
 }
 
@@ -98,6 +103,7 @@ async function compactToolResult(
   part: ContentPartLike,
   engine: Compactor,
   config: PolicyConfig,
+  meta: Record<string, unknown>,
 ): Promise<void> {
   const result = part.result
   if (!result || typeof result !== "object") return
@@ -105,7 +111,7 @@ async function compactToolResult(
 
   if (result.type === "text" || result.type === "json") {
     if (typeof result.value === "string") {
-      const compacted = await compactString(result.value, engine, config)
+      const compacted = await compactString(result.value, engine, config, meta)
       if (compacted !== undefined) result.value = compacted
     }
     return
@@ -114,7 +120,7 @@ async function compactToolResult(
     for (const entry of result.value) {
       const item = entry as { type?: string; text?: string } | null
       if (item && item.type === "text" && typeof item.text === "string") {
-        const compacted = await compactString(item.text, engine, config)
+        const compacted = await compactString(item.text, engine, config, meta)
         if (compacted !== undefined) item.text = compacted
       }
     }
@@ -125,12 +131,13 @@ async function compactString(
   text: string,
   engine: Compactor,
   config: PolicyConfig,
+  meta: Record<string, unknown>,
 ): Promise<string | undefined> {
   if (!shouldConsider(text, config)) return undefined
   try {
+    // `in_chars` is the pre-trim size, so the ledger's saving is honest.
     return await engine.compact(trimHeadTail(text, config.maxChars), {
-      source: "opencode",
-      cwd: SESSION_CWD,
+      ...meta,
       in_chars: text.length,
     })
   } catch (error) {

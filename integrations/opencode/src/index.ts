@@ -1,5 +1,6 @@
 import { compactEvent } from "./compact.ts"
 import { Engine } from "./engine.ts"
+import { readMode } from "./mode.ts"
 import { DEFAULTS, type PolicyConfig } from "./policy.ts"
 
 /**
@@ -15,6 +16,8 @@ import { DEFAULTS, type PolicyConfig } from "./policy.ts"
 interface HookEvent {
   system: readonly unknown[]
   messages: readonly unknown[]
+  sessionID?: string
+  model?: { providerID: string; id: string }
 }
 
 interface Registration {
@@ -23,6 +26,7 @@ interface Registration {
 
 interface SessionHookContext {
   options: Record<string, unknown>
+  location?: { directory?: string }
   session: {
     hook(
       name: "context" | "compaction",
@@ -50,11 +54,31 @@ export default {
 
     const contextLimit = await readContextLimit(ctx)
 
-    const contextRegistration = await ctx.session.hook("context", async (event) => {
-      await compactEvent(event, engine, config, contextLimit)
+    const project = ctx.location?.directory ?? ""
+    // Per-request scope for the savings ledger: which project, session and model.
+    const metaFor = (event: HookEvent): Record<string, unknown> => ({
+      source: "opencode",
+      cwd: project,
+      session: event.sessionID ?? "",
+      model: event.model ? `${event.model.providerID}/${event.model.id}` : "",
     })
+
+    const activeConfig = (): PolicyConfig => {
+      const mode = readMode()
+      return mode ? { ...config, mode: mode as PolicyConfig["mode"] } : config
+    }
+
+    const contextRegistration = await ctx.session.hook("context", async (event) => {
+      await compactEvent(event, engine, activeConfig(), contextLimit, metaFor(event))
+    })
+
+    // Registered always; only acts when max or compactSummaries is on, so a
+    // runtime `/sift max` enables it without a reload. Summaries persist, so
+    // pre-compressing the summarizer's input can compound loss — hence off by default.
     const compactionRegistration = await ctx.session.hook("compaction", async (event) => {
-      await compactEvent(event, engine, config, contextLimit)
+      const cfg = activeConfig()
+      if (cfg.mode !== "max" && !booleanOption(ctx.options.compactSummaries)) return
+      await compactEvent(event, engine, cfg, contextLimit, metaFor(event))
     })
 
     return async () => {
@@ -113,7 +137,7 @@ async function readContextLimit(ctx: SessionHookContext): Promise<number | undef
 
 function resolveConfig(options: Record<string, unknown>): PolicyConfig {
   const config: PolicyConfig = { ...DEFAULTS }
-  if (options.mode === "off" || options.mode === "auto" || options.mode === "aggressive") {
+  if (options.mode === "off" || options.mode === "auto" || options.mode === "max") {
     config.mode = options.mode
   }
   config.minChars = num(options.minChars, config.minChars)
@@ -134,4 +158,8 @@ function str(value: unknown, fallback: string): string {
 
 function stringArray(value: unknown, fallback: string[]): string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : fallback
+}
+
+function booleanOption(value: unknown): boolean {
+  return value === true || (typeof value === "string" && value.toLowerCase() === "true")
 }

@@ -37,7 +37,7 @@ test("budgetOpen respects mode, ratio, and unknown limits", () => {
   assert.equal(budgetOpen(50, 100, base), false)
   assert.equal(budgetOpen(61, 100, base), true)
   assert.equal(budgetOpen(10, undefined, base), true)
-  assert.equal(budgetOpen(10, 100, { ...base, mode: "aggressive" }), true)
+  assert.equal(budgetOpen(10, 100, { ...base, mode: "max" }), true)
 })
 
 test("trimHeadTail keeps both ends and drops the middle", () => {

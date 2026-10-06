@@ -84,3 +84,53 @@ test("size gate and failure guard skip untouched", async () => {
   assert.equal((short.content[0] as { text: string }).text, "tiny")
   assert.equal((failure.content[0] as { text: string }).text, failureText)
 })
+
+test("engine failure passes the payload through untouched", async () => {
+  const failing: Compactor = {
+    compact: async () => {
+      throw new Error("engine down")
+    },
+  }
+  const message = withContent([text("keep me exactly")])
+  const originalError = console.error
+  console.error = () => {}
+  try {
+    await compactEvent({ system: [], messages: [message] }, failing, config(), undefined)
+  } finally {
+    console.error = originalError
+  }
+  assert.equal((message.content[0] as { text: string }).text, "keep me exactly")
+})
+
+test("budget gate leaves everything untouched when the context is small", async () => {
+  const message = withContent([text("hello")])
+  await compactEvent(
+    { system: [], messages: [message] },
+    engine,
+    config({ budgetRatio: 0.5 }),
+    1000,
+  )
+  assert.equal((message.content[0] as { text: string }).text, "hello")
+})
+
+test("compacts tool-result text values", async () => {
+  const part = { type: "tool-result", result: { type: "text", value: "bash log" } }
+  await compactEvent({ system: [], messages: [withContent([part])] }, engine, config(), undefined)
+  assert.equal((part.result as { value: string }).value, "«bash log»")
+})
+
+test("reports the original size and trims before the engine", async () => {
+  const seen: { text: string; meta?: Record<string, unknown> }[] = []
+  const spy: Compactor = {
+    compact: async (value, meta) => {
+      seen.push({ text: value, meta })
+      return "x"
+    },
+  }
+  const message = withContent([text("abcdefghij")])
+  await compactEvent({ system: [], messages: [message] }, spy, config({ maxChars: 4 }), undefined)
+
+  assert.equal(seen[0].meta?.in_chars, 10) // original, before the head/tail trim
+  assert.ok(seen[0].text.includes("chars trimmed"))
+  assert.ok(seen[0].text.startsWith("ab"))
+})

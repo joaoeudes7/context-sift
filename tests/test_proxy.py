@@ -178,6 +178,8 @@ class ProxyChatCompletionsTests(unittest.TestCase):
         sys_msg = upstream_body["messages"][0]["content"]
         self.assertLess(len(sys_msg), len("You are a helpful assistant with lots of context."))
         self.assertEqual(upstream_body["model"], "gpt-4")
+        # The model response is forwarded verbatim — never compacted.
+        self.assertEqual(resp.json(), {"choices": [{"message": {"content": "hi"}}]})
 
     def test_multimodal_content_preserves_images(self):
         compactor = _StubCompactor()

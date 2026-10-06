@@ -41,11 +41,14 @@ def _process(
             original = meta.get("in_chars")
             if not isinstance(original, (int, float)) or original <= 0:
                 original = len(text)
+            # ponytail: open+append per request in the event loop; a persistent
+            # handle/batching only if write latency ever shows up.
             sink(
                 {
                     "source": str(meta.get("source") or "cli"),
                     "cwd": str(meta.get("cwd") or ""),
                     "model": str(meta.get("model") or ""),
+                    "session": str(meta.get("session") or ""),
                     "in": int(original),
                     "out": len(result),
                     "ms": elapsed_ms,

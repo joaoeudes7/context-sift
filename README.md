@@ -268,24 +268,23 @@ Register the in-repo plugin in `opencode.jsonc`:
 
 - Non-destructive: edits only the outgoing request (`context` / `compaction` hooks), never persisted history.
 - Keeps the most recent messages verbatim; never touches failures, warnings, tool-call inputs, or reasoning.
-- Options: `mode` (`off` | `auto` | `aggressive`), `minChars`, `keepRecent`, `budgetRatio`, `maxChars`, `compactSystem`.
+- Options: `mode` (`off` | `auto` | `max`), `minChars`, `keepRecent`, `budgetRatio`, `maxChars`, `compactSystem`, `compactSummaries`.
 
 See [`integrations/opencode/README.md`](integrations/opencode/README.md) for details and tests (`node --test`).
 
 ## Savings report
 
 Every compaction — plugin, proxy, or one-shot CLI — appends one line to a local
-ledger (sizes and paths only, never the text). `context-sift gain` summarizes it
-like `rtk gain`:
+ledger (sizes and identifiers only, never the text). `context-sift gain` summarizes
+it like `rtk gain`:
 
 ```bash
 context-sift gain                 # totals, by source and project
 context-sift gain --oneline       # one statusline-friendly line
 context-sift gain --spark         # daily savings sparkline
 context-sift gain --days 7        # only the last N days
-context-sift gain --graph         # daily savings bars
-context-sift gain -H              # recent requests
 context-sift gain -p              # filter to the current directory
+context-sift gain -s <session>    # filter to a session
 context-sift gain --json          # machine-readable
 context-sift gain --reset --yes   # wipe the ledger
 ```

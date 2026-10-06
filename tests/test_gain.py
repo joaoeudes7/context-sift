@@ -57,6 +57,45 @@ class GainTests(unittest.TestCase):
         data = json.loads(out.getvalue())
         self.assertEqual(data["summary"]["requests"], 1)
 
+    def test_project_filter_matches_subdirectory(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = os.path.realpath(raw)  # getcwd() resolves symlinks (macOS /var)
+            sub = os.path.join(root, "pkg")
+            os.makedirs(sub)
+            record({"source": "opencode", "cwd": root, "in": 100, "out": 10})
+            record({"source": "opencode", "cwd": "/somewhere/else", "in": 100, "out": 10})
+            os.chdir(sub)
+            out = io.StringIO()
+            with redirect_stdout(out):
+                gain_cli(["--json", "--project"])
+            self.assertEqual(json.loads(out.getvalue())["summary"]["requests"], 1)
+
+    def test_session_filter(self) -> None:
+        record({"source": "opencode", "session": "a", "cwd": "/p", "in": 100, "out": 10})
+        record({"source": "opencode", "session": "b", "cwd": "/p", "in": 100, "out": 10})
+        out = io.StringIO()
+        with redirect_stdout(out):
+            gain_cli(["--json", "--session", "a"])
+        data = json.loads(out.getvalue())
+        self.assertEqual(data["summary"]["requests"], 1)
+
+    def test_session_scope_hides_breakdowns(self) -> None:
+        record({"source": "opencode", "session": "a", "cwd": "/p", "in": 100, "out": 10})
+        out = io.StringIO()
+        with redirect_stdout(out):
+            gain_cli(["--session", "a"])
+        text = out.getvalue()
+        self.assertIn("Session Scope (a)", text)
+        self.assertNotIn("By Source", text)
+        self.assertNotIn("By Project", text)
+
+    def test_session_oneline_is_compact(self) -> None:
+        record({"source": "opencode", "session": "a", "cwd": "/p", "in": 1000, "out": 200})
+        out = io.StringIO()
+        with redirect_stdout(out):
+            gain_cli(["--oneline", "--session", "a"])
+        self.assertEqual(out.getvalue().strip(), "sift  200 saved · 80.0%")
+
     def test_oneline(self) -> None:
         self._seed()
         out = io.StringIO()

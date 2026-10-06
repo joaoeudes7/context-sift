@@ -1,7 +1,7 @@
-export type Mode = "off" | "auto" | "aggressive"
+export type Mode = "off" | "auto" | "max"
 
 export interface PolicyConfig {
-  /** `off` = never touch; `auto` = gate by size + budget; `aggressive` = compact everything eligible. */
+  /** `off` = never touch; `auto` = gate by size + budget; `max` = compact everything eligible. */
   mode: Mode
   /** Minimum characters before a payload is worth compressing. */
   minChars: number
@@ -49,7 +49,7 @@ export function budgetOpen(
   contextLimit: number | undefined,
   config: PolicyConfig,
 ): boolean {
-  if (config.mode === "aggressive") return true
+  if (config.mode === "max") return true
   if (config.budgetRatio <= 0) return true
   if (!contextLimit || contextLimit <= 0) return true
   return totalTokens > contextLimit * config.budgetRatio

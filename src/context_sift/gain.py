@@ -4,7 +4,8 @@ One JSON line per compaction is appended to a local store; the ``gain``
 subcommand aggregates it into a summary like ``rtk gain``. The engine daemon is
 the single writer for socket clients; the proxy and the one-shot CLI also record.
 
-Only sizes and paths are stored — never the compacted text.
+Only sizes and identifiers (source, project, session, model) are stored — never
+the compacted text.
 """
 
 from __future__ import annotations
@@ -116,11 +117,6 @@ def _by_day(entries: list[dict[str, Any]]) -> dict[str, int]:
     return dict(days)
 
 
-def _bar(value: int, peak: int, width: int = 20) -> str:
-    filled = int(round(value / peak * width)) if peak > 0 else 0
-    return "█" * filled + "░" * (width - filled)
-
-
 _SPARK = "▁▂▃▄▅▆▇█"
 
 
@@ -136,10 +132,13 @@ def _today_saved(entries: list[dict[str, Any]]) -> int:
     return _by_day(entries).get(today, 0)
 
 
-def _oneline(entries: list[dict[str, Any]]) -> str:
+def _oneline(entries: list[dict[str, Any]], session: str | None = None) -> str:
     summary = _summarize(entries)
     if not summary["requests"]:
         return "sift  no data"
+    if session:
+        # A session line stays minimal: no cross-session counters.
+        return f"sift  {_human(summary['saved_tokens'])} saved · {summary['saved_pct']}%"
     today = _human(_tokens(_today_saved(entries)))
     return (
         f"sift  {_human(summary['saved_tokens'])} saved · {summary['saved_pct']}% · "
@@ -148,13 +147,14 @@ def _oneline(entries: list[dict[str, Any]]) -> str:
 
 
 def _render_text(
-    entries: list[dict[str, Any]],
-    project: bool,
-    graph: bool,
-    history: bool,
-    spark: bool = False,
+    entries: list[dict[str, Any]], project: bool, spark: bool, session: str | None = None,
 ) -> str:
-    scope = "Project Scope" if project else "Global Scope"
+    if session:
+        scope = f"Session Scope ({session})"
+    elif project:
+        scope = "Project Scope"
+    else:
+        scope = "Global Scope"
     summary = _summarize(entries)
     lines = [
         f"ContextSift Gain ({scope})",
@@ -170,63 +170,38 @@ def _render_text(
         days = _by_day(entries)
         recent = sorted(days)[-14:]
         if recent:
-            values = [days[d] for d in recent]
-            peak = _human(_tokens(max(values)))
-            lines.append(f"Last {len(recent)}d:      {_sparkline(values)} (peak {peak})")
+            peak = _human(_tokens(max(days[d] for d in recent)))
+            lines.append(f"Last {len(recent)}d:      {_sparkline([days[d] for d in recent])} (peak {peak})")
     lines.append("")
 
-    for key, title in (("source", "By Source"), ("cwd", "By Project")):
-        groups = _group(entries, key)
-        if not groups:
-            continue
-        lines.append(title)
-        lines.append("────────────────────────────────────────────")
-        for name, bucket in sorted(groups.items(), key=lambda kv: kv[1]["in"], reverse=True)[:10]:
-            saved = max(0, bucket["in"] - bucket["out"])
-            pct = round(saved / bucket["in"] * 100, 1) if bucket["in"] else 0.0
-            lines.append(
-                f"  {name[:28]:<28} {bucket['count']:>6}  {_human(_tokens(saved)):>7}  {pct:>5}%"
-            )
-        lines.append("")
-
-    if graph:
-        days = _by_day(entries)
-        lines.append("Saved by day (tokens)")
-        lines.append("────────────────────────────────────────────")
-        if days:
-            peak = max(days.values())
-            for day in sorted(days)[-14:]:
-                lines.append(f"  {day}  {_bar(days[day], peak)} {_human(_tokens(days[day]))}")
-        else:
-            lines.append("  (no data)")
-        lines.append("")
-
-    if history:
-        lines.append("Recent requests")
-        lines.append("────────────────────────────────────────────")
-        for entry in entries[-20:]:
-            ts = entry.get("ts", 0)
-            when = datetime.fromtimestamp(ts).strftime("%m-%d %H:%M") if ts else "?"
-            saved = max(0, int(entry.get("in", 0) or 0) - int(entry.get("out", 0) or 0))
-            lines.append(
-                f"  {when}  {str(entry.get('source', '?'))[:8]:<8}  "
-                f"{str(entry.get('cwd', ''))[-30:]:<30}  {_human(_tokens(saved)):>7} saved"
-            )
-        lines.append("")
+    # A single session maps to one source and one project, so the breakdowns add
+    # nothing; show them only for global/project scope.
+    if not session:
+        for key, title in (("source", "By Source"), ("cwd", "By Project")):
+            groups = _group(entries, key)
+            if not groups:
+                continue
+            lines.append(title)
+            lines.append("────────────────────────────────────────────")
+            for name, bucket in sorted(groups.items(), key=lambda kv: kv[1]["in"], reverse=True)[:10]:
+                saved = max(0, bucket["in"] - bucket["out"])
+                pct = round(saved / bucket["in"] * 100, 1) if bucket["in"] else 0.0
+                lines.append(
+                    f"  {name[:28]:<28} {bucket['count']:>6}  {_human(_tokens(saved)):>7}  {pct:>5}%"
+                )
+            lines.append("")
 
     return "\n".join(lines)
 
 
 def gain_cli(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="context-sift gain", description="Token savings summary.")
-    parser.add_argument("-p", "--project", action="store_true", help="filter to the current directory")
-    parser.add_argument("-g", "--graph", action="store_true", help="show daily savings graph")
-    parser.add_argument("--spark", action="store_true", help="show a daily savings sparkline")
-    parser.add_argument("--days", type=int, default=0, help="only count the last N days (0 = all)")
+    parser.add_argument("-p", "--project", action="store_true", help="only the current directory")
+    parser.add_argument("-s", "--session", help="only this session id")
+    parser.add_argument("--days", type=int, default=0, help="only the last N days (0 = all)")
+    parser.add_argument("--spark", action="store_true", help="daily savings sparkline")
     parser.add_argument("--oneline", action="store_true", help="one statusline-friendly line")
-    parser.add_argument("-H", "--history", action="store_true", help="show recent requests")
     parser.add_argument("-j", "--json", action="store_true", dest="as_json", help="JSON output")
-    parser.add_argument("--csv", action="store_true", help="CSV output")
     parser.add_argument("--reset", action="store_true", help="delete all recorded statistics")
     parser.add_argument("-y", "--yes", action="store_true", help="skip confirmation for --reset")
     args = parser.parse_args(argv)
@@ -243,13 +218,21 @@ def gain_cli(argv: list[str] | None = None) -> int:
 
     entries = read_entries()
     if args.project:
-        entries = [e for e in entries if str(e.get("cwd") or "") == os.getcwd()]
+        cwd = os.getcwd()
+        entries = [
+            e
+            for e in entries
+            if (project := str(e.get("cwd") or ""))
+            and (project == cwd or cwd.startswith(project + os.sep))
+        ]
+    if args.session:
+        entries = [e for e in entries if str(e.get("session") or "") == args.session]
     if args.days > 0:
         cutoff = time.time() - args.days * 86400
         entries = [e for e in entries if isinstance(e.get("ts"), (int, float)) and e["ts"] >= cutoff]
 
     if args.oneline:
-        print(_oneline(entries))
+        print(_oneline(entries, session=args.session))
         return 0
 
     if args.as_json:
@@ -265,22 +248,7 @@ def gain_cli(argv: list[str] | None = None) -> int:
         )
         return 0
 
-    if args.csv:
-        print("ts,source,cwd,in,out,saved,ms")
-        for entry in entries:
-            saved = max(0, int(entry.get("in", 0) or 0) - int(entry.get("out", 0) or 0))
-            print(
-                f"{entry.get('ts', '')},{entry.get('source', '')},"
-                f"{entry.get('cwd', '')},{entry.get('in', 0)},{entry.get('out', 0)},"
-                f"{saved},{entry.get('ms', 0)}"
-            )
-        return 0
-
-    print(
-        _render_text(
-            entries, project=args.project, graph=args.graph, history=args.history, spark=args.spark
-        )
-    )
+    print(_render_text(entries, project=args.project, spark=args.spark, session=args.session))
     return 0
 
 
