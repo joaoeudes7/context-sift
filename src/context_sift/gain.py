@@ -82,6 +82,8 @@ def _summarize(entries: list[dict[str, Any]]) -> dict[str, Any]:
     total_in = sum(int(e.get("in", 0) or 0) for e in entries)
     total_out = sum(int(e.get("out", 0) or 0) for e in entries)
     total_ms = sum(float(e.get("ms", 0) or 0) for e in entries)
+    total_units = sum(int(e.get("units", 0) or 0) for e in entries)
+    total_kept = sum(int(e.get("kept", 0) or 0) for e in entries)
     saved = max(0, total_in - total_out)
     count = len(entries)
     return {
@@ -90,6 +92,9 @@ def _summarize(entries: list[dict[str, Any]]) -> dict[str, Any]:
         "output_tokens": _tokens(total_out),
         "saved_tokens": _tokens(saved),
         "saved_pct": round(saved / total_in * 100, 1) if total_in else 0.0,
+        "units": total_units,
+        "kept_units": total_kept,
+        "kept_pct": round(total_kept / total_units * 100, 1) if total_units else 0.0,
         "total_ms": round(total_ms, 1),
         "avg_ms": round(total_ms / count, 1) if count else 0.0,
     }
@@ -163,6 +168,7 @@ def _render_text(
         f"Input tokens:    {_human(summary['input_tokens'])}",
         f"Output tokens:   {_human(summary['output_tokens'])}",
         f"Tokens saved:    {_human(summary['saved_tokens'])} ({summary['saved_pct']}%)",
+        f"Units kept:      {summary['kept_units']}/{summary['units']} ({summary['kept_pct']}%)",
         f"Engine time:     {summary['total_ms']}ms (avg {summary['avg_ms']}ms)",
     ]
 

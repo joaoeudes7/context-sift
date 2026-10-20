@@ -94,9 +94,36 @@ Machine-readable append-only records:
 - `reports/validation_history.jsonl`
 - `reports/semantic_validation.jsonl`
 
+## Checkpoint projection audit
+
+Run `2026-10-18T18:47:41Z`; checkpoint mode is the only path the OpenCode integration now
+uses, and its output is folded into persisted memory, so critical recall is the gate that
+matters. The projection is extractive and makes no model call; 12 items, p95 3.9 ms.
+
+- Prompt scenarios (EN): mean token reduction 90.4%, min 89.2%; critical recall 100% (3/3).
+- Aligned multilingual handoffs (EN/PT/ES/FR/DE/RU/AR/JA/ZH, 80 redundant reminders per item):
+  mean token reduction 86.8%; critical recall 100% (9/9, exact anchors + natural phrases);
+  missing items 0.
+- Runtime gates: 5 repeated projections byte-identical, then `stop()` refuses further work.
+- Two recall gaps were found by this audit and fixed before it recorded:
+  - The 128-char cap on sentence expansion dropped the tail of a long condition
+    (`... por lo que se revirtió` / `поэтому была отменена`), leaving the head clause
+    unreadable. The checkpoint path now expands a meaning-changing anchor across its whole
+    sentence; cost was multilingual mean reduction 87.1% → 86.8%.
+  - The decision-state gate listed participles only, so ES `rechazó` (preterite) and RU
+    `отменена` were unrecognised. It now uses stems for the reject/refuse/revert/cancel/fail
+    families in the enumerated languages.
+- Generic compaction was re-verified after that change: EN fixture mean ratio 0.086
+  (unchanged), multilingual handoff critical recall 100% in all nine languages.
+
+Machine-readable record: `reports/checkpoint_validation.jsonl`; samples in `reports/checkpoint_samples`.
+
 ## Next gates
 
 1. Add multilingual selection labels for AR/JA/RU/ZH and repeat real-pair audit.
 2. Train format-diverse selection labels; logs and diffs expose largest domain gap.
 3. Add cross-window semantic dedup only after multilingual/domain recall remains stable.
 4. Set `production_ready: true` only when critical recall stays 100% and semantic recall is non-inferior across all evaluated domains.
+5. Checkpoint mode is a regex projection, not a model call: it reached 100% recall on the evaluated
+   fixtures, but an unseen constraint phrasing with no status verb and no technical anchor can still
+   be dropped. Extend the constraint gate from real session data before calling it conservative protection.

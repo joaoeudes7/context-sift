@@ -15,8 +15,16 @@ import mlx.optimizers as optim
 import sentencepiece as spm
 from mlx.utils import tree_flatten
 
-from context_sift.msc_model import FastMinimumContextRNN, MinimumContextRNN
+from context_sift.msc_model import FastMinimumContextRNN, FastMinimumContextRNNV2, MinimumContextRNN
 from context_sift.msc_training import TrainingWindow, split_grouped_rows, training_windows
+
+
+def build_model(arch: str, vocab_size: int) -> nn.Module:
+    if arch == "v2":
+        return FastMinimumContextRNNV2(vocab_size, embedding_dim=64, hidden_dim=128)
+    if arch == "fast":
+        return FastMinimumContextRNN(vocab_size)
+    return MinimumContextRNN(vocab_size)
 
 
 def loss_fn(model: nn.Module, units: list[mx.array], labels: mx.array) -> mx.array:
@@ -54,6 +62,7 @@ def main() -> None:
     parser.add_argument("--max-label-ratio", type=float, default=0.8)
     parser.add_argument("--reverse-probability", type=float, default=0.5)
     parser.add_argument("--fast", action="store_true")
+    parser.add_argument("--arch", choices=("fast", "rnn", "v2"), default=None)
     parser.add_argument("--seed", type=int, default=7)
     args = parser.parse_args()
     initial_config_path = args.initial_model.parent / "config.json" if args.initial_model else None
@@ -81,9 +90,12 @@ def main() -> None:
         raise SystemExit("need at least 10 training windows and one validation group")
     rng = random.Random(args.seed)
     rng.shuffle(train)
-    model = FastMinimumContextRNN(tokenizer.vocab_size()) if args.fast else MinimumContextRNN(tokenizer.vocab_size())
+    arch = args.arch or ("fast" if args.fast else "rnn")
+    model = build_model(arch, tokenizer.vocab_size())
     if args.initial_model:
-        model.load_weights(str(args.initial_model))
+        # V2 adds attention/norm heads the legacy checkpoint does not carry: load the
+        # shared embedding/GRU/keep_head weights only, and train the new heads.
+        model.load_weights(str(args.initial_model), strict=arch != "v2")
     optimizer = optim.AdamW(learning_rate=args.learning_rate, weight_decay=0.01)
     value_and_grad = nn.value_and_grad(model, loss_fn)
     initial = validation_loss(model, valid[:20])
@@ -110,10 +122,10 @@ def main() -> None:
     shutil.copy2(args.tokenizer, args.output / "tokenizer.model")
     config = {
         "name": initial_config.get("name", "ContextSift"),
-        "architecture": "FastMinimumContextRNN" if args.fast else "MinimumContextRNN",
+        "architecture": type(model).__name__,
         "vocab_size": tokenizer.vocab_size(),
-        "embedding_dim": 64 if args.fast else 128, "hidden_dim": 128,
-        "projection_dim": None if args.fast else 64,
+        "embedding_dim": 64 if arch in ("fast", "v2") else 128, "hidden_dim": 128,
+        "projection_dim": None if arch in ("fast", "v2") else 64,
         "parameters": model.parameter_count(), "training_windows": len(train),
         "validation_windows": len(valid), "initial_valid_loss": initial, "best_valid_loss": best,
         "excluded_rows": len(rows) - len(filtered), "reverse_probability": args.reverse_probability,
@@ -121,7 +133,7 @@ def main() -> None:
         "threshold": initial_config.get("threshold", 0.5),
     }
     (args.output / "config.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
-    reloaded = FastMinimumContextRNN(tokenizer.vocab_size()) if args.fast else MinimumContextRNN(tokenizer.vocab_size())
+    reloaded = build_model(arch, tokenizer.vocab_size())
     reloaded.load_weights(str(args.output / "model.safetensors"))
     probe_units, _ = arrays(valid[0])
     logits, _ = reloaded(probe_units)

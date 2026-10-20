@@ -266,9 +266,9 @@ Register the in-repo plugin in `opencode.jsonc`:
 }
 ```
 
-- Non-destructive: edits only the outgoing request (`context` / `compaction` hooks), never persisted history.
+- Non-destructive: edits only the outgoing request (the `compaction` hook), never persisted history.
 - Keeps the most recent messages verbatim; never touches failures, warnings, tool-call inputs, or reasoning.
-- Options: `mode` (`off` | `auto` | `max`), `minChars`, `keepRecent`, `budgetRatio`, `maxChars`, `compactSystem`, `compactSummaries`.
+- Options: `mode` (`off` | `auto` | `max`), `minChars`, `keepRecent`, `budgetRatio`, `maxChars`, `compactSystem`.
 
 See [`integrations/opencode/README.md`](integrations/opencode/README.md) for details and tests (`node --test`).
 

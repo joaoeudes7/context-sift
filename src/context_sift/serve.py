@@ -34,7 +34,21 @@ def _process(
             raise TypeError("text must be a string")
         meta = request.get("meta") if isinstance(request.get("meta"), dict) else {}
         started = time.perf_counter()
-        result = service(text)
+        # Prefer the report path so kept/units/protected are available; fall back
+        # to a plain call for services that only expose __call__ (tests, mocks).
+        method = "checkpoint_report" if meta.get("mode") == "checkpoint" else "compact_report"
+        report = getattr(service, method, None)
+        if report is None and method == "checkpoint_report":
+            report = getattr(service, "compact_report", None)
+        if callable(report):
+            outcome = report(text)
+            result = outcome.text
+            ratio = outcome.ratio
+            units, kept, protected = outcome.units, outcome.kept, outcome.protected
+        else:
+            result = service(text)
+            ratio = round(len(result) / len(text), 4) if text else 1.0
+            units = kept = protected = 0
         elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
 
         if sink is not None:
@@ -51,6 +65,10 @@ def _process(
                     "session": str(meta.get("session") or ""),
                     "in": int(original),
                     "out": len(result),
+                    "ratio": ratio,
+                    "units": units,
+                    "kept": kept,
+                    "protected": protected,
                     "ms": elapsed_ms,
                 }
             )
@@ -58,8 +76,11 @@ def _process(
         return {
             "id": identifier,
             "text": result,
-            "ratio": round(len(result) / len(text), 4) if text else 1.0,
+            "ratio": ratio,
             "ms": elapsed_ms,
+            "units": units,
+            "kept": kept,
+            "protected": protected,
         }
     except Exception as error:  # a bad line must never kill the daemon
         return {"id": identifier, "error": f"{type(error).__name__}: {error}"}

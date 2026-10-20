@@ -1,4 +1,4 @@
-import { compactEvent } from "./compact.ts"
+import { compactEvent, type CompactionCache } from "./compact.ts"
 import { Engine } from "./engine.ts"
 import { readMode } from "./mode.ts"
 import { DEFAULTS, type PolicyConfig } from "./policy.ts"
@@ -53,6 +53,7 @@ export default {
     }
 
     const contextLimit = await readContextLimit(ctx)
+    const checkpointCache: CompactionCache = new Map()
 
     const project = ctx.location?.directory ?? ""
     // Per-request scope for the savings ledger: which project, session and model.
@@ -68,21 +69,24 @@ export default {
       return mode ? { ...config, mode: mode as PolicyConfig["mode"] } : config
     }
 
-    const contextRegistration = await ctx.session.hook("context", async (event) => {
-      await compactEvent(event, engine, activeConfig(), contextLimit, metaFor(event))
-    })
-
-    // Registered always; only acts when max or compactSummaries is on, so a
-    // runtime `/sift max` enables it without a reload. Summaries persist, so
-    // pre-compressing the summarizer's input can compound loss — hence off by default.
+    // Compact only when OpenCode explicitly runs its compaction flow. This avoids
+    // an extra local pass (and daemon request) on every model request.
     const compactionRegistration = await ctx.session.hook("compaction", async (event) => {
       const cfg = activeConfig()
-      if (cfg.mode !== "max" && !booleanOption(ctx.options.compactSummaries)) return
-      await compactEvent(event, engine, cfg, contextLimit, metaFor(event))
+      if (cfg.mode === "off") return
+      // A checkpoint is folded into persisted memory: project the input to
+      // completed work + decisions + next steps rather than compress generically.
+      await compactEvent(
+        event,
+        engine,
+        cfg,
+        contextLimit,
+        { ...metaFor(event), mode: "checkpoint" },
+        checkpointCache,
+      )
     })
 
     return async () => {
-      await contextRegistration.dispose()
       await compactionRegistration.dispose()
       releaseEngine()
     }
@@ -158,8 +162,4 @@ function str(value: unknown, fallback: string): string {
 
 function stringArray(value: unknown, fallback: string[]): string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : fallback
-}
-
-function booleanOption(value: unknown): boolean {
-  return value === true || (typeof value === "string" && value.toLowerCase() === "true")
 }

@@ -404,8 +404,8 @@ _STACK_TRACE_RE = re.compile(
     re.IGNORECASE,
 )
 _SUMMARY_RE = re.compile(
-    r"(passed|failed|error|ok|skipped|total|summary|result)",
-    re.IGNORECASE,
+    r"^\s*(?:\d+\s+(?:passed|failed|errors?|skipped|warnings?)|=+ .* =+$|total|summary|(?:test|build) result)",
+    re.IGNORECASE | re.MULTILINE,
 )
 
 

@@ -3,7 +3,7 @@ import json
 import os
 import unittest
 
-from context_sift.serve import acquire_singleton, serve, serve_socket, socket_is_live
+from context_sift.serve import _process, acquire_singleton, serve, serve_socket, socket_is_live
 
 from pathlib import Path
 import tempfile
@@ -17,6 +17,25 @@ class _FakeService:
     def __call__(self, text: str) -> str:
         self.calls.append(text)
         return text[:5]
+
+
+class _ReportingService:
+    """Exposes ``compact_report``; the serve path must prefer it."""
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def compact_report(self, text: str):
+        from context_sift.msc import CompactionResult
+
+        self.calls.append(text)
+        return CompactionResult("hello", units=10, kept=3, protected=1, ratio=0.5)
+
+    def checkpoint_report(self, text: str):
+        from context_sift.msc import CompactionResult
+
+        self.calls.append(text)
+        return CompactionResult("checkpoint", units=8, kept=2, protected=1, ratio=0.25)
 
 
 def _run(lines: list[str]) -> tuple[list[dict], _FakeService]:
@@ -81,6 +100,29 @@ class ServeTests(unittest.TestCase):
         self.assertEqual(entry["cwd"], "/p")
         self.assertEqual(entry["in"], 100)
         self.assertEqual(entry["out"], 5)
+
+    def test_report_path_exposes_and_records_kept_units(self) -> None:
+        service = _ReportingService()
+        response = _process('{"id":1,"text":"hello world","meta":{"source":"opencode"}}', service)
+
+        self.assertEqual(response["text"], "hello")
+        self.assertEqual(response["units"], 10)
+        self.assertEqual(response["kept"], 3)
+        self.assertEqual(response["protected"], 1)
+        self.assertEqual(response["ratio"], 0.5)
+
+        entry = json.loads(Path(os.environ["CONTEXT_SIFT_GAIN_FILE"]).read_text().splitlines()[-1])
+        self.assertEqual(entry["units"], 10)
+        self.assertEqual(entry["kept"], 3)
+        self.assertEqual(entry["protected"], 1)
+
+    def test_checkpoint_mode_routes_to_checkpoint_report(self) -> None:
+        service = _ReportingService()
+        response = _process(
+            '{"id":1,"text":"long session history","meta":{"mode":"checkpoint"}}', service
+        )
+        self.assertEqual(response["text"], "checkpoint")
+        self.assertEqual(response["ratio"], 0.25)
 
 
 class SocketServeTests(unittest.IsolatedAsyncioTestCase):

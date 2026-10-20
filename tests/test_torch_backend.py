@@ -54,6 +54,31 @@ class TorchBackendTests(unittest.TestCase):
             service.stop()
             forced.stop()
 
+    def test_compact_report_counts_units_and_protected(self) -> None:
+        from context_sift import CompactorService
+
+        text = (
+            "The session token must be validated before it is refreshed. "
+            "Keep the exact path src/auth/session.ts unchanged during the fix. "
+            "The default timeout is 30 seconds for every caller. "
+            "Never lower the existing security checks when refactoring. "
+            "Run pytest tests/auth/test_rotation.py -q before merging. "
+            "Document why the rotation must be atomic across processes. "
+        )
+        service = CompactorService(backend="torch", device="cpu")
+        try:
+            report = service.compact_report(text)
+            self.assertEqual(report.text, service(text))
+            self.assertGreater(report.units, 0)
+            self.assertGreaterEqual(report.kept, 1)
+            self.assertGreaterEqual(report.protected, 1)
+            self.assertLessEqual(report.ratio, 1.0)
+            short = service.compact_report("tiny")
+            self.assertEqual(short.units, 0)
+            self.assertEqual(short.ratio, 1.0)
+        finally:
+            service.stop()
+
     def test_zero_parameter_service_auto_detects_runtime(self) -> None:
         from context_sift import CompactorService
 

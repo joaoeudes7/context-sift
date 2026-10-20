@@ -10,7 +10,7 @@ from pathlib import Path
 import mlx.core as mx
 import sentencepiece as spm
 
-from context_sift.msc_model import FastMinimumContextRNN, MinimumContextRNN
+from context_sift.msc_model import FastMinimumContextRNN, FastMinimumContextRNNV2, MinimumContextRNN
 from context_sift.msc_training import split_grouped_rows, training_windows
 
 
@@ -38,6 +38,8 @@ def main() -> None:
     model = (
         FastMinimumContextRNN(config["vocab_size"], config["embedding_dim"], config["hidden_dim"])
         if config["architecture"] == "FastMinimumContextRNN"
+        else FastMinimumContextRNNV2(config["vocab_size"], config["embedding_dim"], config["hidden_dim"])
+        if config["architecture"] == "FastMinimumContextRNNV2"
         else MinimumContextRNN(
             config["vocab_size"], config["embedding_dim"], config["hidden_dim"], config["projection_dim"]
         )

@@ -11,7 +11,7 @@ const read = (file: string): string => readFileSync(join(SRC, file), "utf8")
 
 test("plugin registers only the outgoing-request session hooks", () => {
   const names = [...read("index.ts").matchAll(/\.hook\(\s*"([^"]+)"/g)].map((match) => match[1])
-  assert.deepEqual(names.sort(), ["compaction", "context"])
+  assert.deepEqual(names.sort(), ["compaction"])
 })
 
 test("plugin never touches model responses", () => {

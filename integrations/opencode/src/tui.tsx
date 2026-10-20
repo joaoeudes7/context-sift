@@ -106,17 +106,15 @@ export default Plugin.define({
               }
 
               const active = readMode() || fallback
-              const summaries = active === "max" || options.compactSummaries === true
               const line = await readGainLine(currentSession)
               await context.ui.dialog.alert({
                 title: "ContextSift",
                 message: [
                   line,
-                  `mode: ${active}${summaries ? " (summaries on)" : ""}`,
+                  `mode: ${active}`,
                   `conversation: ${currentSession || "(none in view)"}`,
                   "",
                   "Change: /sift off | /sift auto | /sift max",
-                  "max also compacts OpenCode's summarizer input.",
                 ].join("\n"),
               })
             },

@@ -17,4 +17,5 @@ build/
 reports/*.tmp
 models/context-sift-next/
 models/*-next/
+models/*-v2/
 adapters/

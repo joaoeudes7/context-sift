@@ -1,6 +1,6 @@
 import unittest
 
-from context_sift.rules import compress_rules, protected_sentence_spans
+from context_sift.rules import compress_rules, protected_sentence_spans, semantic_risk_spans
 
 
 class RulesTest(unittest.TestCase):
@@ -15,6 +15,21 @@ class RulesTest(unittest.TestCase):
     def test_deduplicates_exact_sentences_and_lines(self) -> None:
         result = compress_rules("Keep logs. Keep logs.\nDeploy now\nDeploy now")
         self.assertEqual(result.text, "Keep logs.\nDeploy now")
+
+    def test_preserves_code_indentation(self) -> None:
+        source = "def f():\n    return 1\n\nclass X:\n    pass"
+        result = compress_rules(source).text
+        self.assertIn("    return 1", result)
+        self.assertIn("    pass", result)
+
+    def test_does_not_merge_a_line_starting_with_punctuation(self) -> None:
+        source = "PASSED\n  ...\nnext line here"
+        result = compress_rules(source).text
+        self.assertNotIn("PASSED...", result)
+        self.assertIn("\n", result)
+
+    def test_drops_padding_on_whitespace_only_lines(self) -> None:
+        self.assertEqual(compress_rules("a\n   \nb").text, "a\n\nb")
 
     def test_preserves_protected_values(self) -> None:
         source = (
@@ -132,6 +147,40 @@ class RulesTest(unittest.TestCase):
         source = "Tool inventory includes repository search, file read, and CI status."
         spans = [span.text.casefold() for span in compress_rules(source).protected_spans]
         self.assertIn("tool inventory", spans)
+
+    def test_protects_condition_and_sequence_gates(self) -> None:
+        for source in (
+            "Switch to code mode only after plan approval.",
+            "Deploy only when the suite passes.",
+            "Proceed unless the lock is held.",
+            "Edit files only if tests are green.",
+            "Só após aprovação, edite arquivos.",
+        ):
+            self.assertTrue(compress_rules(source).protected_spans, source)
+
+    def test_expands_condition_gate_across_its_sentence(self) -> None:
+        source = "Switch to code mode only after plan approval. Drop this narration."
+        self.assertEqual(
+            protected_sentence_spans(source)[0].text,
+            "Switch to code mode only after plan approval.",
+        )
+
+    def test_semantic_span_does_not_split_on_decimal_or_filename(self) -> None:
+        source = (
+            "Never invoke write on capture.py 3.12, deploy, or restart. Drop this."
+        )
+        self.assertEqual(
+            semantic_risk_spans(source)[0].text,
+            "Never invoke write on capture.py 3.12, deploy, or restart.",
+        )
+
+    def test_semantic_span_ignores_pure_technical_anchors(self) -> None:
+        self.assertEqual(semantic_risk_spans("The value is /etc/hosts and 42."), ())
+
+    def test_semantic_span_respects_char_cap(self) -> None:
+        source = "This sentence does not fit " + "alpha " * 40 + "the cap."
+        self.assertGreater(len(source), 160)
+        self.assertEqual(semantic_risk_spans(source, max_chars=160), ())
 
     def test_protects_direct_user_commands(self) -> None:
         for source in (

@@ -11,6 +11,10 @@ export interface Compactor {
   compact(text: string, meta?: Record<string, unknown>): Promise<string>
 }
 
+export type CompactionCache = Map<string, Promise<string>>
+
+const MAX_CACHE_ENTRIES = 2048
+
 /**
  * Shape of the OpenCode V2 request hook payload, narrowed to what we touch.
  * Confirmed against `@opencode/ai@2.0.22`:
@@ -39,6 +43,7 @@ export async function compactEvent(
   config: PolicyConfig,
   contextLimit: number | undefined,
   meta: Record<string, unknown> = {},
+  cache?: CompactionCache,
 ): Promise<void> {
   if (config.mode === "off") return
 
@@ -46,13 +51,13 @@ export async function compactEvent(
   if (!budgetOpen(totalTokens, contextLimit, config)) return
 
   if (config.compactSystem) {
-    for (const part of event.system) await compactTextField(asPart(part), engine, config, meta)
+    for (const part of event.system) await compactTextField(asPart(part), engine, config, meta, cache)
   }
 
   // Keep the most recent messages verbatim: they carry the live task.
   const keep = Math.max(0, event.messages.length - config.keepRecent)
   for (let index = 0; index < keep; index++) {
-    await compactMessage(event.messages[index], engine, config, meta)
+    await compactMessage(event.messages[index], engine, config, meta, cache)
   }
 }
 
@@ -61,10 +66,11 @@ async function compactMessage(
   engine: Compactor,
   config: PolicyConfig,
   meta: Record<string, unknown>,
+  cache?: CompactionCache,
 ): Promise<void> {
   const content = (message as MessageLike | null)?.content
   if (!Array.isArray(content)) return
-  for (const part of content) await compactContentPart(asPart(part), engine, config, meta)
+  for (const part of content) await compactContentPart(asPart(part), engine, config, meta, cache)
 }
 
 async function compactContentPart(
@@ -72,14 +78,15 @@ async function compactContentPart(
   engine: Compactor,
   config: PolicyConfig,
   meta: Record<string, unknown>,
+  cache?: CompactionCache,
 ): Promise<void> {
   if (!part) return
   switch (part.type) {
     case "text":
-      await compactTextField(part, engine, config, meta)
+      await compactTextField(part, engine, config, meta, cache)
       return
     case "tool-result":
-      await compactToolResult(part, engine, config, meta)
+      await compactToolResult(part, engine, config, meta, cache)
       return
     default:
       // media, tool-call (structured input), reasoning, compaction, effort: untouched.
@@ -93,9 +100,10 @@ async function compactTextField(
   engine: Compactor,
   config: PolicyConfig,
   meta: Record<string, unknown>,
+  cache?: CompactionCache,
 ): Promise<void> {
   if (!part || part.type !== "text" || typeof part.text !== "string") return
-  const compacted = await compactString(part.text, engine, config, meta)
+  const compacted = await compactString(part.text, engine, config, meta, cache)
   if (compacted !== undefined) part.text = compacted
 }
 
@@ -104,6 +112,7 @@ async function compactToolResult(
   engine: Compactor,
   config: PolicyConfig,
   meta: Record<string, unknown>,
+  cache?: CompactionCache,
 ): Promise<void> {
   const result = part.result
   if (!result || typeof result !== "object") return
@@ -111,7 +120,7 @@ async function compactToolResult(
 
   if (result.type === "text" || result.type === "json") {
     if (typeof result.value === "string") {
-      const compacted = await compactString(result.value, engine, config, meta)
+      const compacted = await compactString(result.value, engine, config, meta, cache)
       if (compacted !== undefined) result.value = compacted
     }
     return
@@ -120,7 +129,7 @@ async function compactToolResult(
     for (const entry of result.value) {
       const item = entry as { type?: string; text?: string } | null
       if (item && item.type === "text" && typeof item.text === "string") {
-        const compacted = await compactString(item.text, engine, config, meta)
+        const compacted = await compactString(item.text, engine, config, meta, cache)
         if (compacted !== undefined) item.text = compacted
       }
     }
@@ -132,18 +141,42 @@ async function compactString(
   engine: Compactor,
   config: PolicyConfig,
   meta: Record<string, unknown>,
+  cache?: CompactionCache,
 ): Promise<string | undefined> {
   if (!shouldConsider(text, config)) return undefined
+  // Key on what is actually sent: the trim is part of the payload, so identical
+  // payloads from different messages share one entry and large tool results are
+  // not retained twice just to be deduplicated.
+  const payload = trimHeadTail(text, config.maxChars)
+  const cached = cache?.get(payload)
+  if (cached) return cached
+  // `in_chars` is the pre-trim size, so the ledger's saving is honest.
+  const pending = engine.compact(payload, { ...meta, in_chars: text.length })
+  cacheSet(cache, payload, pending)
   try {
-    // `in_chars` is the pre-trim size, so the ledger's saving is honest.
-    return await engine.compact(trimHeadTail(text, config.maxChars), {
-      ...meta,
-      in_chars: text.length,
-    })
+    const compacted = await pending
+    if (estimateTokens(compacted) >= estimateTokens(text)) {
+      // Keep the original. Do not retain it under the payload key: two different
+      // messages can trim to one payload, and that would hand back the wrong text.
+      cache?.delete(payload)
+      return text
+    }
+    cacheSet(cache, compacted, Promise.resolve(compacted))
+    return compacted
   } catch (error) {
+    cache?.delete(payload)
     console.error(`[context-sift] compaction failed, passing through: ${error}`)
     return undefined
   }
+}
+
+function cacheSet(cache: CompactionCache | undefined, text: string, value: Promise<string>): void {
+  if (!cache) return
+  if (!cache.has(text) && cache.size >= MAX_CACHE_ENTRIES) {
+    const oldest = cache.keys().next().value
+    if (oldest !== undefined) cache.delete(oldest)
+  }
+  cache.set(text, value)
 }
 
 function collectText(system: readonly unknown[], messages: readonly unknown[]): string {

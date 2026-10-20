@@ -40,9 +40,8 @@ engine process over a Unix socket (`<tmpdir>/context-sift-<uid>.sock`):
 
 ## How it works
 
-- Registers the `context` session hook (the agent-loop request). `compaction` is
-  opt-in (`compactSummaries` or `mode: "max"`) because its summaries
-  persist and pre-compressing the summarizer input can reduce fidelity.
+- Registers only the `compaction` session hook. ContextSift runs when OpenCode
+  explicitly compacts, avoiding an extra local pass on every model request.
 - Both mutate **only the outgoing request** — persisted history is never touched.
 - Keeps the most recent `keepRecent` messages verbatim.
 - Never touches failures/warnings, `tool-call` inputs, or reasoning.
@@ -57,13 +56,12 @@ messages → recency filter → failure guard → size gate → head/tail
 
 | Option | Default | Meaning |
 |---|---|---|
-| `mode` | `"auto"` | `off` \| `auto` \| `max` (`max` also enables `compactSummaries`) |
+| `mode` | `"auto"` | `off` \| `auto` \| `max` |
 | `minChars` | `2000` | Skip payloads smaller than this |
 | `keepRecent` | `6` | Recent messages kept verbatim |
 | `budgetRatio` | `0` | Only act past this fraction of the context window (`0` = always) |
 | `maxChars` | `100000` | Head/tail trim threshold |
 | `compactSystem` | `false` | Also compact system instructions |
-| `compactSummaries` | `false` | Also compact the transcript sent to OpenCode's summarizer (can reduce checkpoint fidelity) |
 | `command` | `"context-sift"` | Engine executable |
 | `socketPath` | tmp dir | Shared daemon socket |
 | `idleTimeout` | `60` | Seconds the daemon stays warm after the last client |

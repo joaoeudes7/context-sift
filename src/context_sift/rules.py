@@ -7,6 +7,41 @@ import re
 
 
 _TOKEN_RE = re.compile(r"\w+(?:[-']\w+)*|https?://\S+|`[^`]*`", re.UNICODE)
+#: Meaning-changing anchors: negations, permissions, prohibitions, decision state
+#: and condition/sequence gates. Kept in their own pattern so they can expand to a
+#: whole sentence (a negation without its object is meaningless) without dragging
+#: every technical anchor (paths, numbers, URLs) into an expensive sentence span.
+_SEMANTIC_RISK_PATTERN = (
+    r"\b(?:não|nunca|jamais|sem|deve|devem|precisa|precisam|obrigatório|proibido"
+    r"|not|never|no|without|must|shall|required|require(?:s|d|ments?)?|should|cannot|can't|don't|won't"
+    r"|request|question|allowed|permit|permitted|forbidden|override"
+    r"|solicitud|pregunta|nunca|sin|debe|permitido|permitida|prohibido|prohibida|prevalecen"
+    r"|demande|question|jamais|sans|doit|autorisé|autorisée|interdit|interdite|priment"
+    r"|auftrag|frage|niemals|nicht|ohne|muss|erlaubt|verboten|vorrang"
+    r"|запрос|вопрос|никогда|не|без|должен|разрешена|разрешено|запрещено|безопасности|важнее"
+    r"|طلب|سؤال|لا|دون|يجب|يسمح|ممنوع|أمان|تتقدم"
+    r"|rejected|refused|reverted|superseded|failed|pending|blocked|warning|security"
+    r"|rejet\w*|refus\w*|annul\w*|échou\w*|attente|bloqu\w*"
+    r"|abgelehnt|verweigert|rückgängig|fehlgeschlagen|ausstehend|blockiert"
+    r"|rechaz\w*|revert\w*|revirt\w*|fall(?:ó|o|a|aron|id[oa])|pendiente|bloqu\w*"
+    r"|отклон\w*|отказ\w*|отмен\w*|неудач\w*|ожида\w*|заблокирован\w*"
+    r"|رفض|فشل|معلق|محظور"
+    r"|rejeit\w*|recus\w*|revert\w*|substitu\w*|falh\w*|pendente|bloqu\w*|aviso|segurança)\b"
+    r"|\b(?:only after|only when|only if|not before|unless|provided that|prior approval|approval is required"
+    r"|requires? (?:user |explicit )?approval|pending (?:user |explicit )?approval|awaiting approval"
+    r"|requer(?:em|id[oa]s?)?|exige(?:m)?|requiere(?:n)?|requiert|erfordert|benötigt|требует(?:ся)?|нужно|يتطلب|必要|要する|需要"
+    r"|somente após|só após|apenas depois|a menos que|desde que|aprovação prévia|requer aprovação|aguardando aprovação"
+    r"|solo después|solo tras|a menos que|siempre que|aprobación previa|requiere aprobación"
+    r"|seulement après|à moins que|à condition que|sous réserve|approbation préalable"
+    r"|erst nach|erst wenn|es sei denn|sofern|vorherige (?:genehmigung|zustimmung)"
+    r"|только после|только тогда|если не|при условии|предварительн\w+ (?:одобрен|согласован)"
+    r"|فقط بعد|فقط عندما|إلا إذا|بشرط|موافقة مسبقة"
+    r"|承認後|承認を得|の場合のみ|仅当|除非|经批准|前提是)(?:\b|(?=[^\x00-\x7F]))"
+    r"|拒否|失敗|保留|禁止|拒绝|失败|待处理|してはいけない|ならない|許可|優先|依頼|質問"
+    r"|不得|不要|必须|允许|安全|优先|请求|问题|[?？]"
+    r"|\b(?:tool inventory|available tools|available capabilities|inventário de ferramentas|ferramentas disponíveis)\b"
+)
+
 _PROTECTED_RE = re.compile(
     r"```[\s\S]*?```"
     r"|->|→"
@@ -19,7 +54,6 @@ _PROTECTED_RE = re.compile(
     r"|mach|führe|aktualisiere|korrigiere|füge|entferne|behalte|verwende"
     r"|сделай|выполни|обнови|исправь|добавь|удали|сохрани|используй"
     r"|افعل|نفذ|حدّث|أصلح|أضف|احذف|احتفظ|استخدم|実行|更新|修正|追加|削除|保持|使用|请|执行|更新|修复|添加|删除|保留|使用)(?:\b|(?=[^\x00-\x7F]))"
-    r"|\b(?:tool inventory|available tools|available capabilities|inventário de ferramentas|ferramentas disponíveis)\b"
     r"|(?:^|(?<=[.!?。！？]\s))[^.!?。！？:：\n]{1,48}[:：]"
     r"|`[^`\n]+`"
     r"|https?://[^\s<>]+"
@@ -27,26 +61,11 @@ _PROTECTED_RE = re.compile(
     r"|(?<![A-Za-z0-9_.-])\.[A-Za-z_](?:[A-Za-z0-9_.-]*[A-Za-z0-9_-])?(?=$|[\s,;:!?)}\]]|\.(?=\s|$)|[^\x00-\x7F])"
     r"|(?<![A-Za-z0-9_.-])/?(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]*[A-Za-z0-9_-](?:::[A-Za-z0-9_.-]*[A-Za-z0-9_-])*(?=$|[\s,;:!?)}\]]|\.(?=\s|$)|[^\x00-\x7F])"
     r"|\b\d+(?:[./,:-]\d+)*(?:[ \t]*(?:%|ms|sec|seconds?|bytes?|KB|MB|GB|TB|Hz|kHz|MHz|GHz|mm|cm|km|m|kg|g|USD|EUR|BRL))?\b"
-    r"|\b(?:não|nunca|jamais|sem|deve|devem|precisa|precisam|obrigatório|proibido"
-    r"|not|never|no|without|must|shall|required|should|cannot|can't|don't|won't"
-    r"|request|question|allowed|permit|permitted|forbidden|override"
-    r"|solicitud|pregunta|nunca|sin|debe|permitido|permitida|prohibido|prohibida|prevalecen"
-    r"|demande|question|jamais|sans|doit|autorisé|autorisée|interdit|interdite|priment"
-    r"|auftrag|frage|niemals|nicht|ohne|muss|erlaubt|verboten|vorrang"
-    r"|запрос|вопрос|никогда|не|без|должен|разрешена|разрешено|запрещено|безопасности|важнее"
-    r"|طلب|سؤال|لا|دون|يجب|يسمح|ممنوع|أمان|تتقدم"
-    r"|rejected|refused|reverted|superseded|failed|pending|blocked|warning|security"
-    r"|rejeté|refusé|annulé|échoué|attente|bloqué"
-    r"|abgelehnt|verweigert|rückgängig|fehlgeschlagen|ausstehend|blockiert"
-    r"|rechazado|rechazada|revertido|falló|pendiente|bloqueado"
-    r"|отклонил|отклонено|отказался|отменён|неудачная|ожидается|заблокирован"
-    r"|رفض|فشل|معلق|محظور"
-    r"|rejeitado|recusado|revertido|substituído|falhou|pendente|bloqueado|aviso|segurança)\b"
-    r"|拒否|失敗|保留|禁止|拒绝|失败|待处理|してはいけない|ならない|許可|優先|依頼|質問"
-    r"|不得|不要|必须|允许|安全|优先|请求|问题|[?？]"
+    r"|" + _SEMANTIC_RISK_PATTERN +
     r"|(?<![A-Za-z0-9_])(?-i:[A-Za-z_][A-Za-z0-9_]*_[A-Za-z0-9_]+|[a-z]+(?:[A-Z][A-Za-z0-9]*)+|[a-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+)(?![A-Za-z0-9_])",
     re.IGNORECASE | re.UNICODE | re.MULTILINE,
 )
+_SEMANTIC_RISK_RE = re.compile(_SEMANTIC_RISK_PATTERN, re.IGNORECASE | re.UNICODE | re.MULTILINE)
 
 _FILLERS = (
     "please make sure that",
@@ -106,21 +125,73 @@ def _protected_spans(text: str) -> tuple[ProtectedSpan, ...]:
     return tuple(spans)
 
 
-def protected_sentence_spans(text: str) -> tuple[ProtectedSpan, ...]:
-    """Expand protected anchors so models cannot delete part of their sentence."""
+_SENTENCE_STOPS = "!?。！？\n"
+
+
+def _is_sentence_boundary(text: str, index: int) -> bool:
+    """True when ``text[index]`` terminates a sentence.
+
+    A plain ``.`` only ends a sentence when whitespace follows it, so decimals
+    (``3.12``), filenames (``capture.py``) and qualified symbols do not split a
+    protected sentence in half.
+    """
+    char = text[index]
+    if char in _SENTENCE_STOPS:
+        return True
+    if char == ".":
+        following = text[index + 1] if index + 1 < len(text) else " "
+        return following in " \t\n"
+    return False
+
+
+def protected_spans(text: str) -> tuple[ProtectedSpan, ...]:
+    """Exact protected anchors (no sentence expansion), ordered and non-overlapping."""
+    return _protected_spans(text)
+
+
+def _expand_to_sentence(text: str, start: int, end: int) -> tuple[int, int]:
+    while start > 0 and not _is_sentence_boundary(text, start - 1):
+        start -= 1
+    while start < end and text[start].isspace():
+        start += 1
+    while end < len(text) and not _is_sentence_boundary(text, end):
+        end += 1
+    if end < len(text):
+        end += 1
+    return start, end
+
+
+def semantic_risk_spans(
+    text: str, *, max_chars: int = 128
+) -> tuple[ProtectedSpan, ...]:
+    """Expand meaning-changing anchors to their sentence, capped at ``max_chars``.
+
+    A negation, prohibition or condition gate is only interpretable with the
+    clause it governs, so its whole sentence is protected. The cap keeps a long
+    prose sentence from being dragged in whole: past the cap the anchor falls
+    back to its minimal span (still protected upstream), so dense prose keeps
+    its compression ratio.
+    """
     expanded: list[ProtectedSpan] = []
-    boundaries = ".!?。！？\n"
+    for match in _SEMANTIC_RISK_RE.finditer(text):
+        if expanded and match.start() < expanded[-1].end:
+            continue
+        start, end = _expand_to_sentence(text, match.start(), match.end())
+        if max_chars and end - start > max_chars:
+            continue
+        if expanded and start <= expanded[-1].end:
+            previous = expanded[-1]
+            expanded[-1] = ProtectedSpan(text[previous.start:end], previous.start, end)
+        else:
+            expanded.append(ProtectedSpan(text[start:end], start, end))
+    return tuple(expanded)
+
+
+def protected_sentence_spans(text: str) -> tuple[ProtectedSpan, ...]:
+    """Expand every protected anchor so models cannot delete part of its sentence."""
+    expanded: list[ProtectedSpan] = []
     for span in _protected_spans(text):
-        start = span.start
-        while start > 0 and text[start - 1] not in boundaries:
-            start -= 1
-        while start < span.start and text[start].isspace():
-            start += 1
-        end = span.end
-        while end < len(text) and text[end] not in boundaries:
-            end += 1
-        if end < len(text):
-            end += 1
+        start, end = _expand_to_sentence(text, span.start, span.end)
         if expanded and start <= expanded[-1].end:
             previous = expanded[-1]
             expanded[-1] = ProtectedSpan(text[previous.start:end], previous.start, end)
@@ -150,11 +221,21 @@ def _duplicate_ranges(text: str) -> list[tuple[int, int]]:
     return removed
 
 
+_INDENT_RE = re.compile(r"^[ \t]*")
+
+
 def _cleanup(text: str) -> str:
-    text = re.sub(r"[ \t]+", " ", text)
-    text = re.sub(r" *\n *", "\n", text)
+    lines = []
+    for line in text.split("\n"):
+        indent = _INDENT_RE.match(line).group()
+        body = line[len(indent):]
+        if not body:
+            lines.append("")  # whitespace-only line: drop the padding, keep the break
+            continue
+        lines.append(indent + re.sub(r"[ \t]+", " ", body).rstrip())
+    text = "\n".join(lines)
     text = re.sub(r"\n{3,}", "\n\n", text)
-    text = re.sub(r"\s+([,;:!?]|\.(?![A-Za-z_]))", r"\1", text)
+    text = re.sub(r"[ \t]+([,;:!?]|\.(?![A-Za-z_]))", r"\1", text)
     text = re.sub(r"([,;])(?:\s*[,;])+", r"\1", text)
     text = re.sub(r"(^|\n)\s*[,;:]\s*", r"\1", text)
     return text.strip()
